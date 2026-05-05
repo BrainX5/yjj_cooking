@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,6 +10,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private Vector3 instructionOffset = new Vector3(-3.5f, 1.7f, 0f);
     [SerializeField] private Vector3 existingScenePotOffset = new Vector3(0f, 2.2f, 0f);
     [SerializeField] private float existingScenePotScale = 2.2f;
+
+    private Font uiFont;
 
     private void Start()
     {
@@ -25,12 +26,15 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             return;
         }
 
+        uiFont = Font.CreateDynamicFontFromOSFont(
+            new[] { "Microsoft YaHei", "SimHei", "SimSun", "Arial Unicode MS" },
+            30);
+
         if (!useExistingSceneEnvironment)
         {
             var camera = EnsureCamera();
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.8f, 0.9f, 0.96f, 1f);
-
             EnsureDirectionalLight();
             CreateGround();
         }
@@ -45,12 +49,17 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 
         var fire = ResolveFireEffect(cookingRoot);
-        var pot = CreatePot(cookingRoot, out var soupSurface, out var soupRenderer);
+        var pot = CreatePot(
+            cookingRoot,
+            out var soupSurface,
+            out var soupRenderer,
+            out var stirStick,
+            out var mushroomSpawnPoint,
+            out var mushroomTargetPoint);
 
         if (!useExistingSceneEnvironment)
         {
             CreateDecor(cookingRoot);
-            CreateInstructionSigns(cookingRoot.position);
         }
 
         CreateUiCanvas(
@@ -59,6 +68,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             out var fireValueText,
             out var progressText,
             out var mushroomCountText,
+            out var fireSliderLabelText,
+            out var progressSliderLabelText,
             out var progressSlider,
             out var fireSlider);
 
@@ -69,11 +80,16 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             pot,
             soupSurface,
             soupRenderer,
+            stirStick,
+            mushroomSpawnPoint,
+            mushroomTargetPoint,
             titleText,
             promptText,
             fireValueText,
             progressText,
             mushroomCountText,
+            fireSliderLabelText,
+            progressSliderLabelText,
             progressSlider,
             fireSlider);
     }
@@ -93,6 +109,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
                 camera.transform.position = new Vector3(0f, 4.4f, -7.2f);
                 camera.transform.rotation = Quaternion.Euler(20f, 0f, 0f);
             }
+
             return camera;
         }
 
@@ -187,7 +204,6 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             var rock = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             rock.name = $"Stone_{i + 1}";
             rock.transform.SetParent(parent);
-
             var angle = i * Mathf.PI * 2f / 10f;
             rock.transform.localPosition = new Vector3(Mathf.Cos(angle) * 0.82f, 0.14f, Mathf.Sin(angle) * 0.82f);
             rock.transform.localScale = new Vector3(0.2f, 0.14f, 0.2f);
@@ -220,9 +236,9 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         var main = particleSystem.main;
         main.loop = true;
         main.playOnAwake = true;
-        main.startLifetime = 0.75f;
-        main.startSpeed = 0.85f;
-        main.startSize = 0.6f;
+        main.startLifetime = 0.65f;
+        main.startSpeed = 0.4f;
+        main.startSize = 0.24f;
         main.startColor = new ParticleSystem.MinMaxGradient(
             new Color(1f, 0.45f, 0.05f, 0.95f),
             new Color(1f, 0.82f, 0.18f, 0.9f));
@@ -230,38 +246,25 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         main.gravityModifier = -0.06f;
 
         var emission = particleSystem.emission;
-        emission.rateOverTime = 20f;
+        emission.rateOverTime = 8f;
 
         var shape = particleSystem.shape;
         shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 20f;
-        shape.radius = 0.18f;
-
-        var colorOverLifetime = particleSystem.colorOverLifetime;
-        colorOverLifetime.enabled = true;
-        var gradient = new Gradient();
-        gradient.SetKeys(
-            new[]
-            {
-                new GradientColorKey(new Color(1f, 0.9f, 0.35f), 0f),
-                new GradientColorKey(new Color(1f, 0.4f, 0.08f), 0.5f),
-                new GradientColorKey(new Color(0.2f, 0.2f, 0.2f), 1f)
-            },
-            new[]
-            {
-                new GradientAlphaKey(0.95f, 0f),
-                new GradientAlphaKey(0.8f, 0.55f),
-                new GradientAlphaKey(0f, 1f)
-            });
-        colorOverLifetime.color = gradient;
+        shape.angle = 16f;
+        shape.radius = 0.09f;
 
         var renderer = particleSystem.GetComponent<ParticleSystemRenderer>();
         renderer.material = new Material(Shader.Find("Particles/Standard Unlit"));
-
         return particleSystem;
     }
 
-    private Transform CreatePot(Transform parent, out Transform soupSurface, out Renderer soupRenderer)
+    private Transform CreatePot(
+        Transform parent,
+        out Transform soupSurface,
+        out Renderer soupRenderer,
+        out Transform stirStick,
+        out Transform mushroomSpawnPoint,
+        out Transform mushroomTargetPoint)
     {
         var potRoot = new GameObject("Cooking Pot").transform;
         potRoot.SetParent(parent);
@@ -281,31 +284,52 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         body.name = "PotBody";
         body.transform.SetParent(potRoot);
         body.transform.localPosition = Vector3.zero;
-        body.transform.localScale = new Vector3(0.88f, 0.38f, 0.88f);
-        body.GetComponent<Renderer>().material.color = useExistingSceneEnvironment
-            ? new Color(0.23f, 0.24f, 0.28f, 1f)
-            : new Color(0.14f, 0.15f, 0.18f, 1f);
+        body.transform.localScale = new Vector3(0.92f, 0.44f, 0.92f);
+        body.GetComponent<Renderer>().material.color = new Color(0.2f, 0.22f, 0.26f, 1f);
+        DestroyCollider(body);
+
+        var innerWall = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        innerWall.name = "PotInnerWall";
+        innerWall.transform.SetParent(potRoot);
+        innerWall.transform.localPosition = new Vector3(0f, 0.16f, 0f);
+        innerWall.transform.localScale = new Vector3(0.72f, 0.12f, 0.72f);
+        innerWall.GetComponent<Renderer>().material.color = new Color(0.09f, 0.09f, 0.1f, 1f);
+        DestroyCollider(innerWall);
+
+        var openHole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        openHole.name = "PotOpenHole";
+        openHole.transform.SetParent(potRoot);
+        openHole.transform.localPosition = new Vector3(0f, 0.235f, 0f);
+        openHole.transform.localScale = new Vector3(0.44f, 0.01f, 0.44f);
+        openHole.GetComponent<Renderer>().material.color = new Color(0.03f, 0.03f, 0.03f, 1f);
+        DestroyCollider(openHole);
 
         var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         rim.name = "PotRim";
         rim.transform.SetParent(potRoot);
-        rim.transform.localPosition = new Vector3(0f, 0.2f, 0f);
-        rim.transform.localScale = new Vector3(0.95f, 0.03f, 0.95f);
-        rim.GetComponent<Renderer>().material.color = new Color(0.3f, 0.31f, 0.34f, 1f);
+        rim.transform.localPosition = new Vector3(0f, 0.29f, 0f);
+        rim.transform.localScale = new Vector3(1.02f, 0.03f, 1.02f);
+        rim.GetComponent<Renderer>().material.color = new Color(0.34f, 0.35f, 0.38f, 1f);
+        DestroyCollider(rim);
 
         var soup = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         soup.name = "SoupSurface";
         soup.transform.SetParent(potRoot);
-        soup.transform.localPosition = new Vector3(0f, 0.16f, 0f);
-        soup.transform.localScale = new Vector3(0.72f, 0.02f, 0.72f);
+        soup.transform.localPosition = new Vector3(0f, 0.215f, 0f);
+        soup.transform.localScale = new Vector3(0.43f, 0.018f, 0.43f);
         soupRenderer = soup.GetComponent<Renderer>();
-        soupRenderer.material.color = new Color(0.55f, 0.46f, 0.24f, 1f);
+        soupRenderer.material.color = new Color(0.91f, 0.84f, 0.56f, 1f);
         soupSurface = soup.transform;
+        DestroyCollider(soup);
 
         CreateTripodLeg(potRoot, new Vector3(-0.45f, -0.65f, -0.38f), -16f);
         CreateTripodLeg(potRoot, new Vector3(0.45f, -0.65f, -0.38f), 16f);
         CreateTripodLeg(potRoot, new Vector3(0f, -0.65f, 0.48f), 0f);
         CreateHandle(potRoot);
+
+        stirStick = CreateStirStick(potRoot);
+        mushroomSpawnPoint = CreateMarker(potRoot, "MushroomSpawnPoint", new Vector3(-1.1f, 1.55f, 0f));
+        mushroomTargetPoint = CreateMarker(potRoot, "MushroomTargetPoint", new Vector3(0f, 0.28f, 0f));
 
         return potRoot;
     }
@@ -319,6 +343,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         leg.transform.localScale = new Vector3(0.06f, 0.75f, 0.06f);
         leg.transform.localRotation = Quaternion.Euler(0f, 0f, zAngle);
         leg.GetComponent<Renderer>().material.color = new Color(0.22f, 0.16f, 0.1f, 1f);
+        DestroyCollider(leg);
     }
 
     private void CreateHandle(Transform parent)
@@ -326,16 +351,63 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         var leftHandle = GameObject.CreatePrimitive(PrimitiveType.Cube);
         leftHandle.name = "HandleLeft";
         leftHandle.transform.SetParent(parent);
-        leftHandle.transform.localPosition = new Vector3(-0.72f, 0.16f, 0f);
-        leftHandle.transform.localScale = new Vector3(0.18f, 0.04f, 0.04f);
+        leftHandle.transform.localPosition = new Vector3(-0.76f, 0.22f, 0f);
+        leftHandle.transform.localScale = new Vector3(0.22f, 0.05f, 0.05f);
         leftHandle.GetComponent<Renderer>().material.color = new Color(0.24f, 0.24f, 0.26f, 1f);
+        DestroyCollider(leftHandle);
 
         var rightHandle = GameObject.CreatePrimitive(PrimitiveType.Cube);
         rightHandle.name = "HandleRight";
         rightHandle.transform.SetParent(parent);
-        rightHandle.transform.localPosition = new Vector3(0.72f, 0.16f, 0f);
-        rightHandle.transform.localScale = new Vector3(0.18f, 0.04f, 0.04f);
+        rightHandle.transform.localPosition = new Vector3(0.76f, 0.22f, 0f);
+        rightHandle.transform.localScale = new Vector3(0.22f, 0.05f, 0.05f);
         rightHandle.GetComponent<Renderer>().material.color = new Color(0.24f, 0.24f, 0.26f, 1f);
+        DestroyCollider(rightHandle);
+    }
+
+    private Transform CreateStirStick(Transform parent)
+    {
+        var stirRoot = new GameObject("StirStick").transform;
+        stirRoot.SetParent(parent);
+        stirRoot.localPosition = new Vector3(0.48f, 0.9f, 0f);
+        stirRoot.localRotation = Quaternion.Euler(0f, 0f, -28f);
+
+        var stick = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        stick.name = "Stick";
+        stick.transform.SetParent(stirRoot);
+        stick.transform.localPosition = Vector3.zero;
+        stick.transform.localScale = new Vector3(0.05f, 0.62f, 0.05f);
+        stick.GetComponent<Renderer>().material.color = new Color(0.48f, 0.31f, 0.14f, 1f);
+        DestroyCollider(stick);
+
+        var spoon = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        spoon.name = "SpoonHead";
+        spoon.transform.SetParent(stirRoot);
+        spoon.transform.localPosition = new Vector3(0f, -0.62f, 0f);
+        spoon.transform.localScale = new Vector3(0.2f, 0.1f, 0.2f);
+        spoon.GetComponent<Renderer>().material.color = new Color(0.72f, 0.72f, 0.76f, 1f);
+        DestroyCollider(spoon);
+
+        return stirRoot;
+    }
+
+    private Transform CreateMarker(Transform parent, string name, Vector3 localPosition)
+    {
+        var marker = new GameObject(name).transform;
+        marker.SetParent(parent);
+        marker.localPosition = localPosition;
+        marker.localRotation = Quaternion.identity;
+        marker.localScale = Vector3.one;
+        return marker;
+    }
+
+    private void DestroyCollider(GameObject target)
+    {
+        var collider = target.GetComponent<Collider>();
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
     }
 
     private void CreateDecor(Transform parent)
@@ -350,33 +422,18 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             mushroom.GetComponent<Renderer>().material.color = i % 2 == 0
                 ? new Color(0.88f, 0.26f, 0.18f, 1f)
                 : new Color(0.91f, 0.82f, 0.56f, 1f);
+            DestroyCollider(mushroom);
         }
     }
 
-    private void CreateInstructionSigns(Vector3 rootPosition)
-    {
-        CreateWorldLabel(rootPosition + instructionOffset, "\u7a7a\u683c: \u5347\u9ad8\u706b\u529b");
-        CreateWorldLabel(rootPosition + instructionOffset + new Vector3(0f, -0.4f, 0f), "\u4e0a / \u4e0b: \u52a0 1 \u9897\u8611\u83c7");
-        CreateWorldLabel(rootPosition + instructionOffset + new Vector3(0f, -0.8f, 0f), "\u5de6 + \u53f3: \u6405\u62cc\u4e00\u6b21");
-    }
-
-    private void CreateWorldLabel(Vector3 position, string content)
-    {
-        var textObject = new GameObject(content);
-        textObject.transform.position = position;
-        var text = textObject.AddComponent<TextMeshPro>();
-        text.text = content;
-        text.fontSize = 4f;
-        text.color = new Color(0.12f, 0.1f, 0.08f, 1f);
-        text.alignment = TextAlignmentOptions.Left;
-    }
-
     private void CreateUiCanvas(
-        out TextMeshProUGUI titleText,
-        out TextMeshProUGUI promptText,
-        out TextMeshProUGUI fireValueText,
-        out TextMeshProUGUI progressText,
-        out TextMeshProUGUI mushroomCountText,
+        out Text titleText,
+        out Text promptText,
+        out Text fireValueText,
+        out Text progressText,
+        out Text mushroomCountText,
+        out Text fireSliderLabelText,
+        out Text progressSliderLabelText,
         out Slider progressSlider,
         out Slider fireSlider)
     {
@@ -390,17 +447,20 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
 
         canvasObject.AddComponent<GraphicRaycaster>();
 
-        titleText = CreateText(canvas.transform, "Title", new Vector2(30f, -30f), new Vector2(420f, 60f), 36, FontStyles.Bold);
-        promptText = CreateText(canvas.transform, "Prompt", new Vector2(30f, -90f), new Vector2(900f, 90f), 28, FontStyles.Normal);
-        fireValueText = CreateText(canvas.transform, "FireText", new Vector2(30f, -190f), new Vector2(320f, 45f), 24, FontStyles.Normal);
-        progressText = CreateText(canvas.transform, "ProgressText", new Vector2(30f, -240f), new Vector2(320f, 45f), 24, FontStyles.Normal);
-        mushroomCountText = CreateText(canvas.transform, "MushroomText", new Vector2(30f, -290f), new Vector2(320f, 45f), 24, FontStyles.Normal);
+        titleText = CreateText(canvas.transform, "Title", new Vector2(40f, -40f), new Vector2(420f, 60f), 34, FontStyle.Bold);
+        promptText = CreateText(canvas.transform, "Prompt", new Vector2(40f, -100f), new Vector2(980f, 120f), 28, FontStyle.Bold);
+        fireValueText = CreateText(canvas.transform, "FireText", new Vector2(40f, -225f), new Vector2(420f, 42f), 22, FontStyle.Normal);
+        progressText = CreateText(canvas.transform, "ProgressText", new Vector2(40f, -270f), new Vector2(420f, 42f), 22, FontStyle.Normal);
+        mushroomCountText = CreateText(canvas.transform, "MushroomText", new Vector2(40f, -315f), new Vector2(420f, 42f), 22, FontStyle.Normal);
 
-        fireSlider = CreateSlider(canvas.transform, "FireSlider", new Vector2(30f, -350f), new Color(0.95f, 0.45f, 0.08f, 1f));
-        progressSlider = CreateSlider(canvas.transform, "ProgressSlider", new Vector2(30f, -410f), new Color(0.62f, 0.76f, 0.32f, 1f));
+        fireSliderLabelText = CreateText(canvas.transform, "FireSliderLabel", new Vector2(40f, -370f), new Vector2(180f, 34f), 22, FontStyle.Bold);
+        fireSlider = CreateSlider(canvas.transform, "FireSlider", new Vector2(220f, -364f), new Color(0.95f, 0.45f, 0.08f, 1f));
+
+        progressSliderLabelText = CreateText(canvas.transform, "ProgressSliderLabel", new Vector2(40f, -430f), new Vector2(180f, 34f), 22, FontStyle.Bold);
+        progressSlider = CreateSlider(canvas.transform, "ProgressSlider", new Vector2(220f, -424f), new Color(0.62f, 0.76f, 0.32f, 1f));
     }
 
-    private TextMeshProUGUI CreateText(Transform parent, string name, Vector2 anchoredPosition, Vector2 size, float fontSize, FontStyles style)
+    private Text CreateText(Transform parent, string name, Vector2 anchoredPosition, Vector2 size, int fontSize, FontStyle fontStyle)
     {
         var textObject = new GameObject(name);
         textObject.transform.SetParent(parent);
@@ -412,12 +472,18 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         rect.anchoredPosition = anchoredPosition;
         rect.sizeDelta = size;
 
-        var text = textObject.AddComponent<TextMeshProUGUI>();
+        var outline = textObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        var text = textObject.AddComponent<Text>();
+        text.font = uiFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
         text.fontSize = fontSize;
-        text.fontStyle = style;
-        text.color = new Color(0.08f, 0.08f, 0.08f, 1f);
-        text.alignment = TextAlignmentOptions.Left;
-        text.enableWordWrapping = true;
+        text.fontStyle = fontStyle;
+        text.color = Color.white;
+        text.alignment = TextAnchor.UpperLeft;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
         return text;
     }
 
