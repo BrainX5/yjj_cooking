@@ -4,6 +4,14 @@ using UnityEngine.UI;
 
 public class MushroomSoupSceneBootstrap : MonoBehaviour
 {
+    [Header("Scene Placement")]
+    [SerializeField] private bool useExistingSceneEnvironment = true;
+    [SerializeField] private bool anchorToExistingFire = true;
+    [SerializeField] private Vector3 fallbackCookingPosition = new Vector3(-3.08f, 17.76f, -36.1f);
+    [SerializeField] private Vector3 instructionOffset = new Vector3(-3.5f, 1.7f, 0f);
+    [SerializeField] private Vector3 existingScenePotOffset = new Vector3(0f, 2.2f, 0f);
+    [SerializeField] private float existingScenePotScale = 2.2f;
+
     private void Start()
     {
         BuildScene();
@@ -17,22 +25,33 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             return;
         }
 
-        var camera = EnsureCamera();
-        camera.clearFlags = CameraClearFlags.SolidColor;
-        camera.backgroundColor = new Color(0.8f, 0.9f, 0.96f, 1f);
+        if (!useExistingSceneEnvironment)
+        {
+            var camera = EnsureCamera();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.8f, 0.9f, 0.96f, 1f);
 
-        EnsureDirectionalLight();
-        CreateGround();
+            EnsureDirectionalLight();
+            CreateGround();
+        }
 
         var cookingRoot = new GameObject("Campfire Cooking Spot").transform;
-        cookingRoot.position = Vector3.zero;
+        cookingRoot.position = ResolveCookingPosition();
 
-        CreateStoneRing(cookingRoot);
-        CreateLogs(cookingRoot);
-        var fire = CreateFire(cookingRoot);
+        if (!useExistingSceneEnvironment)
+        {
+            CreateStoneRing(cookingRoot);
+            CreateLogs(cookingRoot);
+        }
+
+        var fire = ResolveFireEffect(cookingRoot);
         var pot = CreatePot(cookingRoot, out var soupSurface, out var soupRenderer);
-        CreateDecor(cookingRoot);
-        CreateInstructionSigns();
+
+        if (!useExistingSceneEnvironment)
+        {
+            CreateDecor(cookingRoot);
+            CreateInstructionSigns(cookingRoot.position);
+        }
 
         CreateUiCanvas(
             out var titleText,
@@ -62,10 +81,18 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     private Camera EnsureCamera()
     {
         var camera = Camera.main;
+        if (camera == null)
+        {
+            camera = FindObjectOfType<Camera>();
+        }
+
         if (camera != null)
         {
-            camera.transform.position = new Vector3(0f, 4.4f, -7.2f);
-            camera.transform.rotation = Quaternion.Euler(20f, 0f, 0f);
+            if (!useExistingSceneEnvironment)
+            {
+                camera.transform.position = new Vector3(0f, 4.4f, -7.2f);
+                camera.transform.rotation = Quaternion.Euler(20f, 0f, 0f);
+            }
             return camera;
         }
 
@@ -76,6 +103,56 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         camera.transform.position = new Vector3(0f, 4.4f, -7.2f);
         camera.transform.rotation = Quaternion.Euler(20f, 0f, 0f);
         return camera;
+    }
+
+    private Vector3 ResolveCookingPosition()
+    {
+        if (!anchorToExistingFire)
+        {
+            return fallbackCookingPosition;
+        }
+
+        var existingFire = FindExistingFireParticle();
+        if (existingFire != null)
+        {
+            return existingFire.transform.position;
+        }
+
+        return fallbackCookingPosition;
+    }
+
+    private ParticleSystem ResolveFireEffect(Transform parent)
+    {
+        if (useExistingSceneEnvironment && anchorToExistingFire)
+        {
+            var existingFire = FindExistingFireParticle();
+            if (existingFire != null)
+            {
+                return existingFire;
+            }
+        }
+
+        return CreateFire(parent);
+    }
+
+    private ParticleSystem FindExistingFireParticle()
+    {
+        var particles = FindObjectsOfType<ParticleSystem>();
+        foreach (var particle in particles)
+        {
+            if (particle == null)
+            {
+                continue;
+            }
+
+            var objectName = particle.gameObject.name;
+            if (objectName.Contains("Fire_PSys") || objectName.Contains("Camp fire") || objectName.Contains("Fire"))
+            {
+                return particle;
+            }
+        }
+
+        return null;
     }
 
     private void EnsureDirectionalLight()
@@ -188,21 +265,33 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     {
         var potRoot = new GameObject("Cooking Pot").transform;
         potRoot.SetParent(parent);
-        potRoot.localPosition = new Vector3(0f, 1.02f, 0f);
+
+        if (useExistingSceneEnvironment)
+        {
+            potRoot.localPosition = existingScenePotOffset;
+            potRoot.localScale = Vector3.one * existingScenePotScale;
+        }
+        else
+        {
+            potRoot.localPosition = new Vector3(0f, 1.02f, 0f);
+            potRoot.localScale = Vector3.one;
+        }
 
         var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         body.name = "PotBody";
         body.transform.SetParent(potRoot);
         body.transform.localPosition = Vector3.zero;
         body.transform.localScale = new Vector3(0.88f, 0.38f, 0.88f);
-        body.GetComponent<Renderer>().material.color = new Color(0.14f, 0.15f, 0.18f, 1f);
+        body.GetComponent<Renderer>().material.color = useExistingSceneEnvironment
+            ? new Color(0.23f, 0.24f, 0.28f, 1f)
+            : new Color(0.14f, 0.15f, 0.18f, 1f);
 
         var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         rim.name = "PotRim";
         rim.transform.SetParent(potRoot);
         rim.transform.localPosition = new Vector3(0f, 0.2f, 0f);
         rim.transform.localScale = new Vector3(0.95f, 0.03f, 0.95f);
-        rim.GetComponent<Renderer>().material.color = new Color(0.22f, 0.22f, 0.24f, 1f);
+        rim.GetComponent<Renderer>().material.color = new Color(0.3f, 0.31f, 0.34f, 1f);
 
         var soup = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         soup.name = "SoupSurface";
@@ -264,11 +353,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
     }
 
-    private void CreateInstructionSigns()
+    private void CreateInstructionSigns(Vector3 rootPosition)
     {
-        CreateWorldLabel(new Vector3(-3.5f, 1.7f, 0f), "\u7a7a\u683c: \u5347\u9ad8\u706b\u529b");
-        CreateWorldLabel(new Vector3(-3.5f, 1.3f, 0f), "\u4e0a / \u4e0b: \u52a0 1 \u9897\u8611\u83c7");
-        CreateWorldLabel(new Vector3(-3.5f, 0.9f, 0f), "\u5de6 + \u53f3: \u6405\u62cc\u4e00\u6b21");
+        CreateWorldLabel(rootPosition + instructionOffset, "\u7a7a\u683c: \u5347\u9ad8\u706b\u529b");
+        CreateWorldLabel(rootPosition + instructionOffset + new Vector3(0f, -0.4f, 0f), "\u4e0a / \u4e0b: \u52a0 1 \u9897\u8611\u83c7");
+        CreateWorldLabel(rootPosition + instructionOffset + new Vector3(0f, -0.8f, 0f), "\u5de6 + \u53f3: \u6405\u62cc\u4e00\u6b21");
     }
 
     private void CreateWorldLabel(Vector3 position, string content)
