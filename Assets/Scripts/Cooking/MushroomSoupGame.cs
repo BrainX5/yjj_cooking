@@ -275,12 +275,12 @@ public class MushroomSoupGame : MonoBehaviour
         {
             stirAnimationTimer -= Time.deltaTime;
             var normalized = 1f - Mathf.Clamp01(stirAnimationTimer / 1.1f);
-            var angle = normalized * Mathf.PI * 6f;
-            var swirlX = Mathf.Sin(angle) * 0.22f;
-            var swirlZ = Mathf.Cos(angle) * 0.22f;
+            var angle = normalized * Mathf.PI * 3.2f;
+            var swirlX = Mathf.Sin(angle) * 0.09f;
+            var swirlZ = Mathf.Cos(angle) * 0.09f;
 
-            stirStick.localPosition = stirStickBaseLocalPosition + new Vector3(swirlX, -0.15f, swirlZ);
-            stirStick.localRotation = stirStickBaseLocalRotation * Quaternion.Euler(0f, normalized * 1080f, -40f + Mathf.Sin(angle * 0.5f) * 16f);
+            stirStick.localPosition = stirStickBaseLocalPosition + new Vector3(swirlX, -0.08f, swirlZ);
+            stirStick.localRotation = stirStickBaseLocalRotation * Quaternion.Euler(0f, normalized * 420f, -26f + Mathf.Sin(angle * 0.5f) * 8f);
 
             if (soupSurface != null)
             {

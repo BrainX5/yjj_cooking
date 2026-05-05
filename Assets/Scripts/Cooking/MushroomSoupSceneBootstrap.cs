@@ -311,7 +311,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
 
         var potModel = CreatePotModel(potRoot);
         var bounds = CalculateRendererBounds(potModel != null ? potModel : potRoot.gameObject);
-        var openingY = bounds.center.y + bounds.extents.y * 0.34f;
+        var openingY = bounds.center.y + bounds.extents.y * 0.52f;
         var soupRadius = Mathf.Max(0.18f, Mathf.Min(bounds.extents.x, bounds.extents.z) * 0.62f);
 
         var soup = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -327,7 +327,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         var soupCenter = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         soupCenter.name = "SoupBody";
         soupCenter.transform.SetParent(potRoot);
-        soupCenter.transform.position = new Vector3(bounds.center.x, openingY - 0.08f, bounds.center.z);
+        soupCenter.transform.position = new Vector3(bounds.center.x, openingY - 0.03f, bounds.center.z);
         soupCenter.transform.localScale = new Vector3(soupRadius * 0.9f, 0.12f, soupRadius * 0.9f);
         var soupCenterRenderer = soupCenter.GetComponent<Renderer>();
         soupCenterRenderer.material.color = new Color(0.9f, 0.82f, 0.54f, 1f);
@@ -338,8 +338,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         CreateTripodLeg(potRoot, new Vector3(0f, -0.65f, 0.48f), 0f);
 
         stirStick = CreateStirStick(potRoot);
-        stirStick.position = new Vector3(bounds.center.x + bounds.extents.x * 0.7f, openingY + 0.62f, bounds.center.z);
-        stirStick.rotation = Quaternion.Euler(0f, 0f, -28f);
+        stirStick.position = new Vector3(bounds.center.x + bounds.extents.x * 0.16f, openingY + 0.72f, bounds.center.z);
+        stirStick.rotation = Quaternion.Euler(10f, 0f, -18f);
 
         mushroomSpawnPoint = CreateMarker(potRoot, "MushroomSpawnPoint", Vector3.zero);
         mushroomSpawnPoint.position = new Vector3(bounds.center.x - bounds.extents.x * 1.35f, openingY + 0.95f, bounds.center.z);
@@ -359,7 +359,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         out Transform mushroomTargetPoint)
     {
         var bounds = CalculateRendererBounds(existingPot.gameObject);
-        var openingY = bounds.center.y + bounds.extents.y * 0.34f;
+        var openingY = bounds.center.y + bounds.extents.y * 0.52f;
         var soupRadius = Mathf.Max(0.18f, Mathf.Min(bounds.extents.x, bounds.extents.z) * 0.62f);
 
         var soup = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -375,15 +375,15 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         var soupCenter = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         soupCenter.name = "SoupBody";
         soupCenter.transform.SetParent(existingPot);
-        soupCenter.transform.position = new Vector3(bounds.center.x, openingY - 0.08f, bounds.center.z);
+        soupCenter.transform.position = new Vector3(bounds.center.x, openingY - 0.03f, bounds.center.z);
         soupCenter.transform.localScale = new Vector3(soupRadius * 0.9f, 0.12f, soupRadius * 0.9f);
         var soupCenterRenderer = soupCenter.GetComponent<Renderer>();
         soupCenterRenderer.material.color = new Color(0.9f, 0.82f, 0.54f, 1f);
         DestroyCollider(soupCenter);
 
         stirStick = CreateStirStick(existingPot);
-        stirStick.position = new Vector3(bounds.center.x + bounds.extents.x * 0.7f, openingY + 0.62f, bounds.center.z);
-        stirStick.rotation = Quaternion.Euler(0f, 0f, -28f);
+        stirStick.position = new Vector3(bounds.center.x + bounds.extents.x * 0.16f, openingY + 0.72f, bounds.center.z);
+        stirStick.rotation = Quaternion.Euler(10f, 0f, -18f);
 
         mushroomSpawnPoint = CreateMarker(existingPot, "MushroomSpawnPoint", Vector3.zero);
         mushroomSpawnPoint.position = new Vector3(bounds.center.x - bounds.extents.x * 1.35f, openingY + 0.95f, bounds.center.z);
