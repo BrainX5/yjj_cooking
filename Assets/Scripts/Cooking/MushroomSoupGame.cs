@@ -23,6 +23,7 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private Transform stirStick;
     [SerializeField] private Transform mushroomSpawnPoint;
     [SerializeField] private Transform mushroomTargetPoint;
+    [SerializeField] private GameObject mushroomVisualPrefab;
 
     [Header("UI")]
     [SerializeField] private Text titleText;
@@ -70,6 +71,7 @@ public class MushroomSoupGame : MonoBehaviour
         Transform sceneStirStick,
         Transform sceneMushroomSpawnPoint,
         Transform sceneMushroomTargetPoint,
+        GameObject sceneMushroomVisualPrefab,
         Text sceneTitleText,
         Text scenePromptText,
         Text sceneFireValueText,
@@ -87,6 +89,7 @@ public class MushroomSoupGame : MonoBehaviour
         stirStick = sceneStirStick;
         mushroomSpawnPoint = sceneMushroomSpawnPoint;
         mushroomTargetPoint = sceneMushroomTargetPoint;
+        mushroomVisualPrefab = sceneMushroomVisualPrefab;
         titleText = sceneTitleText;
         promptText = scenePromptText;
         fireValueText = sceneFireValueText;
@@ -237,9 +240,10 @@ public class MushroomSoupGame : MonoBehaviour
         leftStirQueued = false;
         rightStirQueued = false;
 
+        PlayStirAnimation();
+
         if (stage == SoupStage.NeedFirstStir)
         {
-            PlayStirAnimation();
             stage = SoupStage.HeatingToThreeQuarters;
             NudgeSoupSurface(1.18f);
             TintSoup(new Color(0.76f, 0.68f, 0.43f, 1f));
@@ -248,7 +252,6 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (stage == SoupStage.NeedSecondStir)
         {
-            PlayStirAnimation();
             stage = SoupStage.HeatingToDone;
             NudgeSoupSurface(1.22f);
             TintSoup(new Color(0.8f, 0.73f, 0.5f, 1f));
@@ -303,7 +306,7 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         mushroomAnimationTimer += Time.deltaTime;
-        var duration = 0.8f;
+        const float duration = 0.8f;
         var normalized = Mathf.Clamp01(mushroomAnimationTimer / duration);
 
         if (mushroomSpawnPoint != null && mushroomTargetPoint != null)
@@ -336,21 +339,29 @@ public class MushroomSoupGame : MonoBehaviour
             Destroy(activeMushroomVisual.gameObject);
         }
 
-        var mushroom = GameObject.CreatePrimitive(PrimitiveType.Capsule).transform;
-        mushroom.name = "DroppingMushroom";
-        mushroom.position = mushroomSpawnPoint.position;
-        mushroom.localScale = Vector3.one * 0.34f;
-
-        var renderer = mushroom.GetComponent<Renderer>();
-        renderer.material.color = new Color(0.9f, 0.82f, 0.62f, 1f);
-
-        var collider = mushroom.GetComponent<Collider>();
-        if (collider != null)
+        GameObject mushroomObject;
+        if (mushroomVisualPrefab != null)
         {
-            Destroy(collider);
+            mushroomObject = Instantiate(mushroomVisualPrefab);
+        }
+        else
+        {
+            mushroomObject = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            var fallbackRenderer = mushroomObject.GetComponent<Renderer>();
+            if (fallbackRenderer != null)
+            {
+                fallbackRenderer.material.color = new Color(0.9f, 0.82f, 0.62f, 1f);
+            }
         }
 
-        activeMushroomVisual = mushroom;
+        mushroomObject.name = "DroppingMushroom";
+        mushroomObject.SetActive(true);
+        mushroomObject.transform.position = mushroomSpawnPoint.position;
+        mushroomObject.transform.rotation = Quaternion.Euler(-15f, 0f, 25f);
+        mushroomObject.transform.localScale = Vector3.one * 0.34f;
+        RemoveAllColliders(mushroomObject);
+
+        activeMushroomVisual = mushroomObject.transform;
         mushroomAnimationTimer = 0f;
     }
 
@@ -397,7 +408,7 @@ public class MushroomSoupGame : MonoBehaviour
     {
         if (titleText != null)
         {
-            titleText.text = "蘑菇汤";
+            titleText.text = "\u8611\u83c7\u6c64";
         }
 
         if (promptText != null)
@@ -410,27 +421,27 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (fireValueText != null)
         {
-            fireValueText.text = $"当前火力: {firePower:0.00}";
+            fireValueText.text = $"\u5f53\u524d\u706b\u529b: {firePower:0.00}";
         }
 
         if (progressText != null)
         {
-            progressText.text = $"当前煮饭进度: {(cookProgress * 100f):0}%";
+            progressText.text = $"\u5f53\u524d\u716e\u996d\u8fdb\u5ea6: {(cookProgress * 100f):0}%";
         }
 
         if (mushroomCountText != null)
         {
-            mushroomCountText.text = $"已加蘑菇: {mushroomsAdded}/{mushroomsNeeded}";
+            mushroomCountText.text = $"\u5df2\u52a0\u8611\u83c7: {mushroomsAdded}/{mushroomsNeeded}";
         }
 
         if (fireSliderLabelText != null)
         {
-            fireSliderLabelText.text = "火力值";
+            fireSliderLabelText.text = "\u706b\u529b\u503c";
         }
 
         if (progressSliderLabelText != null)
         {
-            progressSliderLabelText.text = "煮饭进度";
+            progressSliderLabelText.text = "\u716e\u996d\u8fdb\u5ea6";
         }
 
         if (progressSlider != null)
@@ -449,21 +460,21 @@ public class MushroomSoupGame : MonoBehaviour
         switch (stage)
         {
             case SoupStage.HeatingToQuarter:
-                return "快速按空格键升高火力，把蘑菇汤煮到 1/4 进度。";
+                return "\u5feb\u901f\u6309\u7a7a\u683c\u952e\u5347\u9ad8\u706b\u529b\uff0c\u628a\u8611\u83c7\u6c64\u716e\u5230 1/4 \u8fdb\u5ea6\u3002";
             case SoupStage.NeedMushroom:
-                return "提示：现在需要加蘑菇，请按上键或下键把蘑菇丢进锅里。";
+                return "\u63d0\u793a\uff1a\u73b0\u5728\u9700\u8981\u52a0\u8611\u83c7\uff0c\u8bf7\u6309\u4e0a\u952e\u6216\u4e0b\u952e\u628a\u8611\u83c7\u4e22\u8fdb\u9505\u91cc\u3002";
             case SoupStage.HeatingToHalf:
-                return "蘑菇已经下锅，继续加热，把进度推进到 2/4。";
+                return "\u8611\u83c7\u5df2\u7ecf\u4e0b\u9505\uff0c\u7ee7\u7eed\u52a0\u70ed\uff0c\u628a\u8fdb\u5ea6\u63a8\u8fdb\u5230 2/4\u3002";
             case SoupStage.NeedFirstStir:
-                return "提示：现在需要第一次搅拌，请左右键各按一次。";
+                return "\u63d0\u793a\uff1a\u73b0\u5728\u9700\u8981\u7b2c\u4e00\u6b21\u6405\u62cc\uff0c\u8bf7\u5de6\u53f3\u952e\u5404\u6309\u4e00\u6b21\u3002";
             case SoupStage.HeatingToThreeQuarters:
-                return "第一次搅拌完成，继续加热，把进度推进到 3/4。";
+                return "\u7b2c\u4e00\u6b21\u6405\u62cc\u5b8c\u6210\uff0c\u7ee7\u7eed\u52a0\u70ed\uff0c\u628a\u8fdb\u5ea6\u63a8\u8fdb\u5230 3/4\u3002";
             case SoupStage.NeedSecondStir:
-                return "提示：现在需要第二次搅拌，请左右键各按一次。";
+                return "\u63d0\u793a\uff1a\u73b0\u5728\u9700\u8981\u7b2c\u4e8c\u6b21\u6405\u62cc\uff0c\u8bf7\u5de6\u53f3\u952e\u5404\u6309\u4e00\u6b21\u3002";
             case SoupStage.HeatingToDone:
-                return "最后收汁加热，马上就完成了。";
+                return "\u6700\u540e\u6536\u6c41\u52a0\u70ed\uff0c\u9a6c\u4e0a\u5c31\u5b8c\u6210\u4e86\u3002";
             case SoupStage.Completed:
-                return "蘑菇汤制作完成。";
+                return "\u8611\u83c7\u6c64\u5236\u4f5c\u5b8c\u6210\u3002";
             default:
                 return string.Empty;
         }
@@ -490,5 +501,14 @@ public class MushroomSoupGame : MonoBehaviour
             soupBaseScale.x * multiplier,
             soupBaseScale.y,
             soupBaseScale.z * multiplier);
+    }
+
+    private void RemoveAllColliders(GameObject target)
+    {
+        var colliders = target.GetComponentsInChildren<Collider>(true);
+        foreach (var collider in colliders)
+        {
+            Destroy(collider);
+        }
     }
 }

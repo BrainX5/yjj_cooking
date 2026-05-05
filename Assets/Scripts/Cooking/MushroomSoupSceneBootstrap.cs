@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class MushroomSoupSceneBootstrap : MonoBehaviour
 {
@@ -8,8 +11,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private bool anchorToExistingFire = true;
     [SerializeField] private Vector3 fallbackCookingPosition = new Vector3(-3.08f, 17.76f, -36.1f);
     [SerializeField] private Vector3 instructionOffset = new Vector3(-3.5f, 1.7f, 0f);
-    [SerializeField] private Vector3 existingScenePotOffset = new Vector3(0f, 2.2f, 0f);
-    [SerializeField] private float existingScenePotScale = 2.2f;
+    [SerializeField] private Vector3 existingScenePotOffset = new Vector3(-3.18f, 3.04f, 6.02f);
+    [SerializeField] private Vector3 existingScenePotRotation = new Vector3(0f, -75.376f, 0f);
+    [SerializeField] private float existingScenePotScale = 1f;
+    [SerializeField] private string potPrefabPath = "Assets/3D Game Kit Clay Pot/Prefabs/pot3.prefab";
+    [SerializeField] private string mushroomPrefabPath = "Assets/Oode studios/Lowpoly nature/Prefabs/Mashrooms/Mashroom 001.prefab";
 
     private Font uiFont;
 
@@ -40,7 +46,14 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 
         var cookingRoot = new GameObject("Campfire Cooking Spot").transform;
-        cookingRoot.position = ResolveCookingPosition();
+        if (useExistingSceneEnvironment)
+        {
+            cookingRoot.position = Vector3.zero;
+        }
+        else
+        {
+            cookingRoot.position = ResolveCookingPosition();
+        }
 
         if (!useExistingSceneEnvironment)
         {
@@ -56,6 +69,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             out var stirStick,
             out var mushroomSpawnPoint,
             out var mushroomTargetPoint);
+        var mushroomPrefab = CreateMushroomVisualTemplate(cookingRoot);
 
         if (!useExistingSceneEnvironment)
         {
@@ -83,6 +97,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             stirStick,
             mushroomSpawnPoint,
             mushroomTargetPoint,
+            mushroomPrefab,
             titleText,
             promptText,
             fireValueText,
@@ -266,72 +281,221 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         out Transform mushroomSpawnPoint,
         out Transform mushroomTargetPoint)
     {
+        var existingPot = useExistingSceneEnvironment ? FindExistingPotVisual() : null;
+        if (existingPot != null)
+        {
+            return AttachGameplayToExistingPot(
+                existingPot,
+                out soupSurface,
+                out soupRenderer,
+                out stirStick,
+                out mushroomSpawnPoint,
+                out mushroomTargetPoint);
+        }
+
         var potRoot = new GameObject("Cooking Pot").transform;
         potRoot.SetParent(parent);
 
         if (useExistingSceneEnvironment)
         {
             potRoot.localPosition = existingScenePotOffset;
-            potRoot.localScale = Vector3.one * existingScenePotScale;
+            potRoot.localRotation = Quaternion.Euler(existingScenePotRotation);
+            potRoot.localScale = Vector3.one;
         }
         else
         {
             potRoot.localPosition = new Vector3(0f, 1.02f, 0f);
+            potRoot.localRotation = Quaternion.identity;
             potRoot.localScale = Vector3.one;
         }
 
-        var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        body.name = "PotBody";
-        body.transform.SetParent(potRoot);
-        body.transform.localPosition = Vector3.zero;
-        body.transform.localScale = new Vector3(0.92f, 0.44f, 0.92f);
-        body.GetComponent<Renderer>().material.color = new Color(0.2f, 0.22f, 0.26f, 1f);
-        DestroyCollider(body);
-
-        var innerWall = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        innerWall.name = "PotInnerWall";
-        innerWall.transform.SetParent(potRoot);
-        innerWall.transform.localPosition = new Vector3(0f, 0.16f, 0f);
-        innerWall.transform.localScale = new Vector3(0.72f, 0.12f, 0.72f);
-        innerWall.GetComponent<Renderer>().material.color = new Color(0.09f, 0.09f, 0.1f, 1f);
-        DestroyCollider(innerWall);
-
-        var openHole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        openHole.name = "PotOpenHole";
-        openHole.transform.SetParent(potRoot);
-        openHole.transform.localPosition = new Vector3(0f, 0.235f, 0f);
-        openHole.transform.localScale = new Vector3(0.44f, 0.01f, 0.44f);
-        openHole.GetComponent<Renderer>().material.color = new Color(0.03f, 0.03f, 0.03f, 1f);
-        DestroyCollider(openHole);
-
-        var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        rim.name = "PotRim";
-        rim.transform.SetParent(potRoot);
-        rim.transform.localPosition = new Vector3(0f, 0.29f, 0f);
-        rim.transform.localScale = new Vector3(1.02f, 0.03f, 1.02f);
-        rim.GetComponent<Renderer>().material.color = new Color(0.34f, 0.35f, 0.38f, 1f);
-        DestroyCollider(rim);
+        var potModel = CreatePotModel(potRoot);
+        var bounds = CalculateRendererBounds(potModel != null ? potModel : potRoot.gameObject);
+        var openingY = bounds.center.y + bounds.extents.y * 0.34f;
+        var soupRadius = Mathf.Max(0.18f, Mathf.Min(bounds.extents.x, bounds.extents.z) * 0.62f);
 
         var soup = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         soup.name = "SoupSurface";
         soup.transform.SetParent(potRoot);
-        soup.transform.localPosition = new Vector3(0f, 0.215f, 0f);
-        soup.transform.localScale = new Vector3(0.43f, 0.018f, 0.43f);
+        soup.transform.position = new Vector3(bounds.center.x, openingY, bounds.center.z);
+        soup.transform.localScale = new Vector3(soupRadius, 0.03f, soupRadius);
         soupRenderer = soup.GetComponent<Renderer>();
         soupRenderer.material.color = new Color(0.91f, 0.84f, 0.56f, 1f);
         soupSurface = soup.transform;
         DestroyCollider(soup);
 
+        var soupCenter = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        soupCenter.name = "SoupBody";
+        soupCenter.transform.SetParent(potRoot);
+        soupCenter.transform.position = new Vector3(bounds.center.x, openingY - 0.08f, bounds.center.z);
+        soupCenter.transform.localScale = new Vector3(soupRadius * 0.9f, 0.12f, soupRadius * 0.9f);
+        var soupCenterRenderer = soupCenter.GetComponent<Renderer>();
+        soupCenterRenderer.material.color = new Color(0.9f, 0.82f, 0.54f, 1f);
+        DestroyCollider(soupCenter);
+
         CreateTripodLeg(potRoot, new Vector3(-0.45f, -0.65f, -0.38f), -16f);
         CreateTripodLeg(potRoot, new Vector3(0.45f, -0.65f, -0.38f), 16f);
         CreateTripodLeg(potRoot, new Vector3(0f, -0.65f, 0.48f), 0f);
-        CreateHandle(potRoot);
 
         stirStick = CreateStirStick(potRoot);
-        mushroomSpawnPoint = CreateMarker(potRoot, "MushroomSpawnPoint", new Vector3(-1.1f, 1.55f, 0f));
-        mushroomTargetPoint = CreateMarker(potRoot, "MushroomTargetPoint", new Vector3(0f, 0.28f, 0f));
+        stirStick.position = new Vector3(bounds.center.x + bounds.extents.x * 0.7f, openingY + 0.62f, bounds.center.z);
+        stirStick.rotation = Quaternion.Euler(0f, 0f, -28f);
+
+        mushroomSpawnPoint = CreateMarker(potRoot, "MushroomSpawnPoint", Vector3.zero);
+        mushroomSpawnPoint.position = new Vector3(bounds.center.x - bounds.extents.x * 1.35f, openingY + 0.95f, bounds.center.z);
+
+        mushroomTargetPoint = CreateMarker(potRoot, "MushroomTargetPoint", Vector3.zero);
+        mushroomTargetPoint.position = new Vector3(bounds.center.x, openingY + 0.03f, bounds.center.z);
 
         return potRoot;
+    }
+
+    private Transform AttachGameplayToExistingPot(
+        Transform existingPot,
+        out Transform soupSurface,
+        out Renderer soupRenderer,
+        out Transform stirStick,
+        out Transform mushroomSpawnPoint,
+        out Transform mushroomTargetPoint)
+    {
+        var bounds = CalculateRendererBounds(existingPot.gameObject);
+        var openingY = bounds.center.y + bounds.extents.y * 0.34f;
+        var soupRadius = Mathf.Max(0.18f, Mathf.Min(bounds.extents.x, bounds.extents.z) * 0.62f);
+
+        var soup = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        soup.name = "SoupSurface";
+        soup.transform.SetParent(existingPot);
+        soup.transform.position = new Vector3(bounds.center.x, openingY, bounds.center.z);
+        soup.transform.localScale = new Vector3(soupRadius, 0.03f, soupRadius);
+        soupRenderer = soup.GetComponent<Renderer>();
+        soupRenderer.material.color = new Color(0.91f, 0.84f, 0.56f, 1f);
+        soupSurface = soup.transform;
+        DestroyCollider(soup);
+
+        var soupCenter = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        soupCenter.name = "SoupBody";
+        soupCenter.transform.SetParent(existingPot);
+        soupCenter.transform.position = new Vector3(bounds.center.x, openingY - 0.08f, bounds.center.z);
+        soupCenter.transform.localScale = new Vector3(soupRadius * 0.9f, 0.12f, soupRadius * 0.9f);
+        var soupCenterRenderer = soupCenter.GetComponent<Renderer>();
+        soupCenterRenderer.material.color = new Color(0.9f, 0.82f, 0.54f, 1f);
+        DestroyCollider(soupCenter);
+
+        stirStick = CreateStirStick(existingPot);
+        stirStick.position = new Vector3(bounds.center.x + bounds.extents.x * 0.7f, openingY + 0.62f, bounds.center.z);
+        stirStick.rotation = Quaternion.Euler(0f, 0f, -28f);
+
+        mushroomSpawnPoint = CreateMarker(existingPot, "MushroomSpawnPoint", Vector3.zero);
+        mushroomSpawnPoint.position = new Vector3(bounds.center.x - bounds.extents.x * 1.35f, openingY + 0.95f, bounds.center.z);
+
+        mushroomTargetPoint = CreateMarker(existingPot, "MushroomTargetPoint", Vector3.zero);
+        mushroomTargetPoint.position = new Vector3(bounds.center.x, openingY + 0.03f, bounds.center.z);
+
+        return existingPot;
+    }
+
+    private Transform FindExistingPotVisual()
+    {
+        var transforms = FindObjectsOfType<Transform>(true);
+        foreach (var item in transforms)
+        {
+            if (item == null)
+            {
+                continue;
+            }
+
+            var objectName = item.name.ToLowerInvariant();
+            if (objectName.Contains("pot3"))
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
+    private GameObject CreatePotModel(Transform parent)
+    {
+#if UNITY_EDITOR
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(potPrefabPath);
+        if (prefab != null)
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            if (instance != null)
+            {
+                instance.name = "PotVisual";
+                instance.transform.SetParent(parent);
+                instance.transform.localPosition = Vector3.zero;
+                instance.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+                instance.transform.localScale = Vector3.one * existingScenePotScale;
+                RemoveAllColliders(instance);
+                return instance;
+            }
+        }
+#endif
+        return null;
+    }
+
+    private Bounds CalculateRendererBounds(GameObject target)
+    {
+        var renderers = target.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            return new Bounds(target.transform.position, Vector3.one);
+        }
+
+        var bounds = renderers[0].bounds;
+        for (var i = 1; i < renderers.Length; i++)
+        {
+            bounds.Encapsulate(renderers[i].bounds);
+        }
+
+        return bounds;
+    }
+
+    private void CreatePotWallRing(Transform parent, int segmentCount, float radius, float width, float height, float depth, Color color)
+    {
+        for (var i = 0; i < segmentCount; i++)
+        {
+            var segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            segment.name = $"PotWall_{i + 1}";
+            segment.transform.SetParent(parent);
+
+            var angle = i * Mathf.PI * 2f / segmentCount;
+            var radial = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+
+            segment.transform.localPosition = new Vector3(radial.x * radius, 0.02f, radial.z * radius);
+            segment.transform.localRotation = Quaternion.Euler(0f, -Mathf.Atan2(radial.z, radial.x) * Mathf.Rad2Deg, 0f);
+            segment.transform.localScale = new Vector3(width, height, depth);
+
+            var renderer = segment.GetComponent<Renderer>();
+            renderer.material.color = color;
+            DestroyCollider(segment);
+        }
+    }
+
+    private void CreateOpenLid(Transform parent)
+    {
+        var lidPivot = new GameObject("LidPivot").transform;
+        lidPivot.SetParent(parent);
+        lidPivot.localPosition = new Vector3(-0.86f, -0.3f, -0.64f);
+        lidPivot.localRotation = Quaternion.Euler(0f, 0f, 6f);
+
+        var lid = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        lid.name = "PotLid";
+        lid.transform.SetParent(lidPivot);
+        lid.transform.localPosition = Vector3.zero;
+        lid.transform.localScale = new Vector3(0.38f, 0.02f, 0.38f);
+        lid.GetComponent<Renderer>().material.color = new Color(0.28f, 0.29f, 0.32f, 1f);
+        DestroyCollider(lid);
+
+        var knob = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        knob.name = "LidKnob";
+        knob.transform.SetParent(lidPivot);
+        knob.transform.localPosition = new Vector3(0f, 0.07f, 0f);
+        knob.transform.localScale = new Vector3(0.09f, 0.08f, 0.09f);
+        knob.GetComponent<Renderer>().material.color = new Color(0.18f, 0.18f, 0.2f, 1f);
+        DestroyCollider(knob);
     }
 
     private void CreateTripodLeg(Transform parent, Vector3 localPosition, float zAngle)
@@ -351,16 +515,16 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         var leftHandle = GameObject.CreatePrimitive(PrimitiveType.Cube);
         leftHandle.name = "HandleLeft";
         leftHandle.transform.SetParent(parent);
-        leftHandle.transform.localPosition = new Vector3(-0.76f, 0.22f, 0f);
-        leftHandle.transform.localScale = new Vector3(0.22f, 0.05f, 0.05f);
+        leftHandle.transform.localPosition = new Vector3(-0.7f, 0.12f, 0f);
+        leftHandle.transform.localScale = new Vector3(0.18f, 0.035f, 0.035f);
         leftHandle.GetComponent<Renderer>().material.color = new Color(0.24f, 0.24f, 0.26f, 1f);
         DestroyCollider(leftHandle);
 
         var rightHandle = GameObject.CreatePrimitive(PrimitiveType.Cube);
         rightHandle.name = "HandleRight";
         rightHandle.transform.SetParent(parent);
-        rightHandle.transform.localPosition = new Vector3(0.76f, 0.22f, 0f);
-        rightHandle.transform.localScale = new Vector3(0.22f, 0.05f, 0.05f);
+        rightHandle.transform.localPosition = new Vector3(0.7f, 0.12f, 0f);
+        rightHandle.transform.localScale = new Vector3(0.18f, 0.035f, 0.035f);
         rightHandle.GetComponent<Renderer>().material.color = new Color(0.24f, 0.24f, 0.26f, 1f);
         DestroyCollider(rightHandle);
     }
@@ -405,6 +569,47 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     {
         var collider = target.GetComponent<Collider>();
         if (collider != null)
+        {
+            Destroy(collider);
+        }
+    }
+
+    private GameObject CreateMushroomVisualTemplate(Transform parent)
+    {
+#if UNITY_EDITOR
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(mushroomPrefabPath);
+        if (prefab != null)
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            if (instance != null)
+            {
+                instance.name = "MushroomVisualTemplate";
+                instance.transform.SetParent(parent);
+                instance.transform.localPosition = new Vector3(-2f, -10f, 0f);
+                instance.transform.localRotation = Quaternion.identity;
+                instance.transform.localScale = Vector3.one * 0.8f;
+                instance.SetActive(false);
+                RemoveAllColliders(instance);
+                return instance;
+            }
+        }
+#endif
+
+        var fallback = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        fallback.name = "MushroomVisualTemplate";
+        fallback.transform.SetParent(parent);
+        fallback.transform.localPosition = new Vector3(-2f, -10f, 0f);
+        fallback.transform.localScale = new Vector3(0.2f, 0.28f, 0.2f);
+        fallback.GetComponent<Renderer>().material.color = new Color(0.9f, 0.82f, 0.62f, 1f);
+        DestroyCollider(fallback);
+        fallback.SetActive(false);
+        return fallback;
+    }
+
+    private void RemoveAllColliders(GameObject target)
+    {
+        var colliders = target.GetComponentsInChildren<Collider>(true);
+        foreach (var collider in colliders)
         {
             Destroy(collider);
         }
