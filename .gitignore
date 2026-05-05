@@ -1,0 +1,52 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+[Uu]ser[Ss]ettings/
+
+# Asset import and cache files
+Assets/AssetStoreTools*
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity / Mono generated files
+sysinfo.txt
+*.tmp
+*.bak
+*.swp
+*.apk
+*.aab
+*.unitypackage
+*.unitypackage.meta
+
+# Crash reports
+sysinfo.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local tool caches and upgrade artifacts
+.vsconfig
+UpgradeLog.htm
