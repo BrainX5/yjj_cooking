@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Rendering;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -21,6 +22,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
 
     private void Start()
     {
+        ApplyMorningLighting();
         BuildScene();
     }
 
@@ -193,15 +195,48 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         if (lightObject != null)
         {
             lightObject.type = LightType.Directional;
-            lightObject.intensity = 1.15f;
-            lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+            lightObject.color = new Color(1f, 0.78f, 0.58f, 1f);
+            lightObject.intensity = 1.35f;
+            lightObject.shadows = LightShadows.Soft;
+            lightObject.shadowStrength = 0.68f;
+            lightObject.transform.rotation = Quaternion.Euler(28f, -35f, 0f);
+            RenderSettings.sun = lightObject;
             return;
         }
 
         var directionalLight = new GameObject("Directional Light").AddComponent<Light>();
         directionalLight.type = LightType.Directional;
-        directionalLight.intensity = 1.15f;
-        directionalLight.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        directionalLight.color = new Color(1f, 0.78f, 0.58f, 1f);
+        directionalLight.intensity = 1.35f;
+        directionalLight.shadows = LightShadows.Soft;
+        directionalLight.shadowStrength = 0.68f;
+        directionalLight.transform.rotation = Quaternion.Euler(28f, -35f, 0f);
+        RenderSettings.sun = directionalLight;
+    }
+
+    private void ApplyMorningLighting()
+    {
+        var camera = EnsureCamera();
+        if (camera != null)
+        {
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.98f, 0.78f, 0.6f, 1f);
+        }
+
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.Linear;
+        RenderSettings.fogColor = new Color(0.98f, 0.76f, 0.62f, 1f);
+        RenderSettings.fogStartDistance = 0f;
+        RenderSettings.fogEndDistance = 180f;
+        RenderSettings.ambientMode = AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.56f, 0.64f, 0.78f, 1f);
+        RenderSettings.ambientEquatorColor = new Color(0.92f, 0.72f, 0.54f, 1f);
+        RenderSettings.ambientGroundColor = new Color(0.3f, 0.24f, 0.2f, 1f);
+        RenderSettings.ambientIntensity = 1.1f;
+        RenderSettings.subtractiveShadowColor = new Color(0.48f, 0.45f, 0.44f, 1f);
+        RenderSettings.reflectionIntensity = 0.9f;
+
+        EnsureDirectionalLight();
     }
 
     private void CreateGround()
