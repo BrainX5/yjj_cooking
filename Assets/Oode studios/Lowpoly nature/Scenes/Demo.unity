@@ -16831,6 +16831,19 @@ MonoBehaviour:
   potPrefabPath: Assets/3D Game Kit Clay Pot/Prefabs/pot3.prefab
   mushroomPrefabPath: Assets/Oode studios/Lowpoly nature/Prefabs/Mashrooms/Mashroom
     001.prefab
+  placePlayerAtMushroomHouse: 1
+  mushroomHouseName: Mushroom House
+  mushroomHouseDoorName: Door
+  spawnDistanceFromDoor: 1.65
+  spawnOffset: {x: 0, y: 0.05, z: 0}
+  actorSearchDuration: 5
+  actorSearchInterval: 0.25
+  populateCanalWithFish: 1
+  waterRootName: Water
+  canalFishCount: 8
+  canalFishPadding: {x: 1.2, y: 0.4, z: 1.2}
+  canalFishPrefab: {fileID: 3793146743532390487, guid: 89c7d56787878bd45a97b081a69b5b43, type: 3}
+  fishPrefabPath: Assets/DenysAlmaral/FishAlive/Prefabs/FishFreshwater/freshWater_guppy.prefab
 --- !u!1001 &2122499759
 PrefabInstance:
   m_ObjectHideFlags: 0

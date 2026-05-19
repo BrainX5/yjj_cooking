@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Rendering;
@@ -18,11 +19,38 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private string potPrefabPath = "Assets/3D Game Kit Clay Pot/Prefabs/pot3.prefab";
     [SerializeField] private string mushroomPrefabPath = "Assets/Oode studios/Lowpoly nature/Prefabs/Mashrooms/Mashroom 001.prefab";
 
+    [Header("Player Spawn")]
+    [SerializeField] private bool placePlayerAtMushroomHouse = true;
+    [SerializeField] private string mushroomHouseName = "Mushroom House";
+    [SerializeField] private string mushroomHouseDoorName = "Door";
+    [SerializeField] private float spawnDistanceFromDoor = 1.65f;
+    [SerializeField] private Vector3 spawnOffset = new Vector3(0f, 0.05f, 0f);
+    [SerializeField] private float actorSearchDuration = 5f;
+    [SerializeField] private float actorSearchInterval = 0.25f;
+
+    [Header("Canal Fish")]
+    [SerializeField] private bool populateCanalWithFish = true;
+    [SerializeField] private string waterRootName = "Water";
+    [SerializeField] private int canalFishCount = 8;
+    [SerializeField] private Vector3 canalFishPadding = new Vector3(1.2f, 0.4f, 1.2f);
+    [SerializeField] private GameObject canalFishPrefab;
+    [SerializeField] private string fishPrefabPath = "Assets/DenysAlmaral/FishAlive/Prefabs/FishFreshwater/freshWater_guppy.prefab";
+
     private Font uiFont;
 
     private void Start()
     {
         ApplyMorningLighting();
+        if (placePlayerAtMushroomHouse)
+        {
+            StartCoroutine(PositionPrimaryActorAtMushroomHouse());
+        }
+
+        if (populateCanalWithFish)
+        {
+            EnsureCanalFishSchool();
+        }
+
         BuildScene();
     }
 
@@ -195,22 +223,22 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         if (lightObject != null)
         {
             lightObject.type = LightType.Directional;
-            lightObject.color = new Color(1f, 0.78f, 0.58f, 1f);
-            lightObject.intensity = 1.35f;
+            lightObject.color = new Color(1f, 0.76f, 0.58f, 1f);
+            lightObject.intensity = 1.18f;
             lightObject.shadows = LightShadows.Soft;
-            lightObject.shadowStrength = 0.68f;
-            lightObject.transform.rotation = Quaternion.Euler(28f, -35f, 0f);
+            lightObject.shadowStrength = 0.82f;
+            lightObject.transform.rotation = Quaternion.Euler(18f, -28f, 0f);
             RenderSettings.sun = lightObject;
             return;
         }
 
         var directionalLight = new GameObject("Directional Light").AddComponent<Light>();
         directionalLight.type = LightType.Directional;
-        directionalLight.color = new Color(1f, 0.78f, 0.58f, 1f);
-        directionalLight.intensity = 1.35f;
+        directionalLight.color = new Color(1f, 0.76f, 0.58f, 1f);
+        directionalLight.intensity = 1.18f;
         directionalLight.shadows = LightShadows.Soft;
-        directionalLight.shadowStrength = 0.68f;
-        directionalLight.transform.rotation = Quaternion.Euler(28f, -35f, 0f);
+        directionalLight.shadowStrength = 0.82f;
+        directionalLight.transform.rotation = Quaternion.Euler(18f, -28f, 0f);
         RenderSettings.sun = directionalLight;
     }
 
@@ -220,23 +248,185 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         if (camera != null)
         {
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.98f, 0.78f, 0.6f, 1f);
+            camera.backgroundColor = new Color(0.99f, 0.82f, 0.63f, 1f);
         }
 
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.Linear;
-        RenderSettings.fogColor = new Color(0.98f, 0.76f, 0.62f, 1f);
+        RenderSettings.fogColor = new Color(0.98f, 0.79f, 0.66f, 1f);
         RenderSettings.fogStartDistance = 0f;
-        RenderSettings.fogEndDistance = 180f;
+        RenderSettings.fogEndDistance = 150f;
         RenderSettings.ambientMode = AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.56f, 0.64f, 0.78f, 1f);
-        RenderSettings.ambientEquatorColor = new Color(0.92f, 0.72f, 0.54f, 1f);
-        RenderSettings.ambientGroundColor = new Color(0.3f, 0.24f, 0.2f, 1f);
-        RenderSettings.ambientIntensity = 1.1f;
-        RenderSettings.subtractiveShadowColor = new Color(0.48f, 0.45f, 0.44f, 1f);
-        RenderSettings.reflectionIntensity = 0.9f;
+        RenderSettings.ambientSkyColor = new Color(0.62f, 0.69f, 0.81f, 1f);
+        RenderSettings.ambientEquatorColor = new Color(0.96f, 0.76f, 0.58f, 1f);
+        RenderSettings.ambientGroundColor = new Color(0.35f, 0.28f, 0.22f, 1f);
+        RenderSettings.ambientIntensity = 1.18f;
+        RenderSettings.subtractiveShadowColor = new Color(0.42f, 0.38f, 0.36f, 1f);
+        RenderSettings.reflectionIntensity = 0.82f;
 
         EnsureDirectionalLight();
+    }
+
+    private IEnumerator PositionPrimaryActorAtMushroomHouse()
+    {
+        var deadline = Time.time + actorSearchDuration;
+
+        while (Time.time <= deadline)
+        {
+            var door = FindNamedTransform(mushroomHouseDoorName, mushroomHouseName);
+            var actor = FindPrimaryActor();
+            if (door != null && actor != null)
+            {
+                PlaceActorAtDoor(actor, door);
+                yield break;
+            }
+
+            yield return new WaitForSeconds(actorSearchInterval);
+        }
+    }
+
+    private void PlaceActorAtDoor(Transform actor, Transform door)
+    {
+        var facing = door.forward;
+        facing.y = 0f;
+        if (facing.sqrMagnitude < 0.01f && door.parent != null)
+        {
+            facing = door.parent.forward;
+            facing.y = 0f;
+        }
+
+        if (facing.sqrMagnitude < 0.01f)
+        {
+            facing = Vector3.forward;
+        }
+
+        facing.Normalize();
+
+        var spawnPosition = door.position + facing * spawnDistanceFromDoor + spawnOffset;
+        if (Physics.Raycast(spawnPosition + Vector3.up * 4f, Vector3.down, out var hit, 12f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            spawnPosition.y = hit.point.y;
+        }
+
+        var characterController = actor.GetComponent<CharacterController>();
+        if (characterController != null)
+        {
+            var wasEnabled = characterController.enabled;
+            characterController.enabled = false;
+            actor.position = spawnPosition;
+            actor.rotation = Quaternion.LookRotation(facing, Vector3.up);
+            characterController.enabled = wasEnabled;
+        }
+        else
+        {
+            if (actor.GetComponent<Camera>() != null)
+            {
+                spawnPosition += Vector3.up * 1.65f;
+            }
+
+            actor.position = spawnPosition;
+            actor.rotation = Quaternion.LookRotation(facing, Vector3.up);
+        }
+
+        var rigidbody = actor.GetComponent<Rigidbody>();
+        if (rigidbody != null)
+        {
+            rigidbody.velocity = Vector3.zero;
+            rigidbody.angularVelocity = Vector3.zero;
+        }
+    }
+
+    private Transform FindPrimaryActor()
+    {
+        GameObject taggedPlayer = null;
+        try
+        {
+            taggedPlayer = GameObject.FindGameObjectWithTag("Player");
+        }
+        catch (UnityException)
+        {
+            taggedPlayer = null;
+        }
+
+        if (taggedPlayer != null)
+        {
+            return taggedPlayer.transform;
+        }
+
+        var characterControllers = FindObjectsOfType<CharacterController>(true);
+        foreach (var controller in characterControllers)
+        {
+            if (controller != null && controller.gameObject.activeInHierarchy)
+            {
+                return controller.transform;
+            }
+        }
+
+        var animators = FindObjectsOfType<Animator>(true);
+        foreach (var animator in animators)
+        {
+            if (animator == null || animator.GetComponent<Camera>() != null)
+            {
+                continue;
+            }
+
+            var lowerName = animator.name.ToLowerInvariant();
+            if (lowerName.Contains("player") || lowerName.Contains("character") || lowerName.Contains("hero"))
+            {
+                return animator.transform;
+            }
+        }
+
+        return Camera.main != null ? Camera.main.transform : null;
+    }
+
+    private Transform FindNamedTransform(string childName, string parentName)
+    {
+        var transforms = FindObjectsOfType<Transform>(true);
+        Transform parent = null;
+
+        foreach (var item in transforms)
+        {
+            if (item != null && item.name == parentName)
+            {
+                parent = item;
+                break;
+            }
+        }
+
+        if (parent == null)
+        {
+            return null;
+        }
+
+        foreach (var item in parent.GetComponentsInChildren<Transform>(true))
+        {
+            if (item != null && item.name == childName)
+            {
+                return item;
+            }
+        }
+
+        return parent;
+    }
+
+    private void EnsureCanalFishSchool()
+    {
+        if (FindObjectOfType<CanalFishSchool>() != null)
+        {
+            return;
+        }
+
+        var waterRoot = FindNamedTransform(waterRootName, waterRootName);
+        if (waterRoot == null)
+        {
+            return;
+        }
+
+        var fishSchoolObject = new GameObject("CanalFishSchool");
+        var fishSchool = fishSchoolObject.AddComponent<CanalFishSchool>();
+        fishSchool.Configure(waterRoot, canalFishCount, canalFishPrefab, fishPrefabPath, canalFishPadding);
+        Debug.Log($"Created CanalFishSchool on {waterRoot.name} with {canalFishCount} fish.", fishSchoolObject);
     }
 
     private void CreateGround()
