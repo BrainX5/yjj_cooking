@@ -226,6 +226,16 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void Update()
     {
+        if (ForestStoryIntroOverlay.IsBlockingInput)
+        {
+            if (cookingCanvas != null)
+            {
+                cookingCanvas.enabled = false;
+            }
+
+            return;
+        }
+
         UpdateInteractionState();
         HandlePhaseTransitions();
 
@@ -303,7 +313,7 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void ReadCookingInput()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.Space) && !MushroomPickupSystem.HasFocusedHarvestable)
         {
             firePower = Mathf.Clamp(firePower + fireGainPerSpace, 0f, maxFirePower);
         }
