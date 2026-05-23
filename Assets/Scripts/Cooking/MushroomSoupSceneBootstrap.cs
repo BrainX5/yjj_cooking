@@ -16,7 +16,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private Vector3 existingScenePotOffset = new Vector3(-3.18f, 3.04f, 6.02f);
     [SerializeField] private Vector3 existingScenePotRotation = new Vector3(0f, -75.376f, 0f);
     [SerializeField] private float existingScenePotScale = 1f;
-    [SerializeField] private string potPrefabPath = "Assets/3D Game Kit Clay Pot/Prefabs/pot3.prefab";
+    [SerializeField] private string soupPotPrefabPath = "Assets/3D Game Kit Clay Pot/Prefabs/pot3.prefab";
+    [SerializeField] private string fryPotPrefabPath = "Assets/3D Game Kit Clay Pot/Prefabs/pot7 .prefab";
     [SerializeField] private string mushroomPrefabPath = "Assets/Oode studios/Lowpoly nature/Prefabs/Mashrooms/Mashroom 001.prefab";
 
     [Header("Player Spawn")]
@@ -38,6 +39,10 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private Vector3 canalFishPadding = new Vector3(1.2f, 0.4f, 1.2f);
     [SerializeField] private GameObject canalFishPrefab;
     [SerializeField] private string fishPrefabPath = "Assets/DenysAlmaral/FishAlive/Prefabs/FishFreshwater/freshWater_guppy.prefab";
+    [SerializeField] private float fryPotScaleMultiplier = 0.3333f;
+    [SerializeField] private Vector3 fryFishLocalOffset = new Vector3(0f, 0.18f, 0f);
+    [SerializeField] private Vector3 fryFishLocalRotation = new Vector3(0f, 90f, 0f);
+    [SerializeField] private float fryFishPanFill = 0.39f;
 
     private Font uiFont;
 
@@ -99,13 +104,14 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 
         var fire = ResolveFireEffect(cookingRoot);
-        var pot = CreatePot(
+        var soupPot = CreateSoupPot(
             cookingRoot,
             out var soupSurface,
             out var soupRenderer,
             out var stirStick,
             out var mushroomSpawnPoint,
             out var mushroomTargetPoint);
+        var fryPot = CreateFryPot(cookingRoot, soupPot, out var fryFishVisual, out var fryFishRenderer);
         var mushroomPrefab = CreateMushroomVisualTemplate(cookingRoot);
 
         if (!useExistingSceneEnvironment)
@@ -138,13 +144,16 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             fire,
             FindPrimaryActor(false),
             FindNamedTransform(waterRootName, waterRootName),
-            pot,
+            soupPot,
+            fryPot,
             soupSurface,
             soupRenderer,
             stirStick,
             mushroomSpawnPoint,
             mushroomTargetPoint,
             mushroomPrefab,
+            fryFishVisual,
+            fryFishRenderer,
             cookingPanel,
             fishingPanel,
             titleText,
@@ -445,7 +454,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             return;
         }
 
-        var pot = FindExistingPotVisual();
+        var pot = FindExistingPotVisual("pot3");
         if (pot == null)
         {
             PlaceActorAtPositionAndLook(actor, fallbackPlayerPosition, Quaternion.Euler(0f, fallbackPlayerRotation.y, 0f) * Vector3.forward);
@@ -681,7 +690,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         return particleSystem;
     }
 
-    private Transform CreatePot(
+    private Transform CreateSoupPot(
         Transform parent,
         out Transform soupSurface,
         out Renderer soupRenderer,
@@ -689,9 +698,10 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         out Transform mushroomSpawnPoint,
         out Transform mushroomTargetPoint)
     {
-        var existingPot = useExistingSceneEnvironment ? FindExistingPotVisual() : null;
+        var existingPot = useExistingSceneEnvironment ? FindExistingPotVisual("pot3") : null;
         if (existingPot != null)
         {
+            existingPot.name = "SoupPotVisual";
             return AttachGameplayToExistingPot(
                 existingPot,
                 out soupSurface,
@@ -717,7 +727,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             potRoot.localScale = Vector3.one;
         }
 
-        var potModel = CreatePotModel(potRoot);
+        potRoot.name = "SoupPotVisual";
+        var potModel = CreatePotModel(potRoot, soupPotPrefabPath, "SoupPotMesh");
         var bounds = CalculateRendererBounds(potModel != null ? potModel : potRoot.gameObject);
         var openingY = bounds.center.y + bounds.extents.y * 0.52f;
         var soupRadius = Mathf.Max(0.18f, Mathf.Min(bounds.extents.x, bounds.extents.z) * 0.62f);
@@ -756,6 +767,37 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         mushroomTargetPoint.position = new Vector3(bounds.center.x, openingY + 0.03f, bounds.center.z);
 
         return potRoot;
+    }
+
+    private Transform CreateFryPot(Transform parent, Transform soupPot, out Transform fryFishVisual, out Renderer fryFishRenderer)
+    {
+        var fryPotRoot = new GameObject("FryPotVisual").transform;
+        fryPotRoot.SetParent(parent);
+
+        if (soupPot != null)
+        {
+            fryPotRoot.position = soupPot.position;
+            fryPotRoot.rotation = soupPot.rotation;
+            fryPotRoot.localScale = soupPot.localScale * fryPotScaleMultiplier;
+        }
+        else if (useExistingSceneEnvironment)
+        {
+            fryPotRoot.localPosition = existingScenePotOffset;
+            fryPotRoot.localRotation = Quaternion.Euler(existingScenePotRotation);
+            fryPotRoot.localScale = Vector3.one * fryPotScaleMultiplier;
+        }
+        else
+        {
+            fryPotRoot.localPosition = new Vector3(0f, 1.02f, 0f);
+            fryPotRoot.localRotation = Quaternion.identity;
+            fryPotRoot.localScale = Vector3.one * fryPotScaleMultiplier;
+        }
+
+        var fryPotModel = CreatePotModel(fryPotRoot, fryPotPrefabPath, "FryPotMesh");
+        var bounds = CalculateRendererBounds(fryPotModel != null ? fryPotModel : fryPotRoot.gameObject);
+        fryFishVisual = CreateFishPresentation(fryPotRoot, bounds, out fryFishRenderer);
+        fryPotRoot.gameObject.SetActive(false);
+        return fryPotRoot;
     }
 
     private Transform AttachGameplayToExistingPot(
@@ -804,7 +846,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         return existingPot;
     }
 
-    private Transform FindExistingPotVisual()
+    private Transform FindExistingPotVisual(string keyword)
     {
         var transforms = FindObjectsOfType<Transform>(true);
         foreach (var item in transforms)
@@ -815,7 +857,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             }
 
             var objectName = item.name.ToLowerInvariant();
-            if (objectName.Contains("pot3"))
+            if (objectName.Contains(keyword))
             {
                 return item;
             }
@@ -824,16 +866,16 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         return null;
     }
 
-    private GameObject CreatePotModel(Transform parent)
+    private GameObject CreatePotModel(Transform parent, string prefabPath, string instanceName)
     {
 #if UNITY_EDITOR
-        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(potPrefabPath);
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
         if (prefab != null)
         {
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             if (instance != null)
             {
-                instance.name = "PotVisual";
+                instance.name = instanceName;
                 instance.transform.SetParent(parent);
                 instance.transform.localPosition = Vector3.zero;
                 instance.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
@@ -844,6 +886,94 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 #endif
         return null;
+    }
+
+    private Transform CreateFishPresentation(Transform parent, Bounds potBounds, out Renderer fishRenderer)
+    {
+        var fishRoot = new GameObject("FryFishVisual").transform;
+        fishRoot.SetParent(parent);
+
+        var center = parent.InverseTransformPoint(potBounds.center);
+        fishRoot.localPosition = center + fryFishLocalOffset;
+        fishRoot.localRotation = Quaternion.Euler(fryFishLocalRotation);
+        fishRoot.localScale = Vector3.one;
+
+        GameObject fishObject = null;
+
+#if UNITY_EDITOR
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(fishPrefabPath);
+        if (prefab != null)
+        {
+            fishObject = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        }
+#endif
+
+        if (fishObject == null)
+        {
+            fishObject = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        }
+
+        fishObject.name = "FishModel";
+        fishObject.transform.SetParent(fishRoot, false);
+        fishObject.transform.localPosition = Vector3.zero;
+        fishObject.transform.localRotation = Quaternion.identity;
+        fishObject.transform.localScale = Vector3.one;
+
+        var fishBounds = CalculateRendererBounds(fishObject);
+        var fishCenterLocal = fishObject.transform.InverseTransformPoint(fishBounds.center);
+        fishObject.transform.localPosition = -fishCenterLocal;
+
+        fishBounds = CalculateRendererBounds(fishObject);
+        var fishLongestSide = Mathf.Max(fishBounds.size.x, Mathf.Max(fishBounds.size.y, fishBounds.size.z));
+        var targetLength = Mathf.Max(0.2f, Mathf.Min(potBounds.size.x, potBounds.size.z) * fryFishPanFill);
+        var scaleFactor = fishLongestSide > 0.0001f ? targetLength / fishLongestSide : 0.8f;
+        fishObject.transform.localScale = Vector3.one * scaleFactor;
+
+        fishBounds = CalculateRendererBounds(fishObject);
+        fishCenterLocal = fishObject.transform.InverseTransformPoint(fishBounds.center);
+        fishObject.transform.localPosition = -fishCenterLocal;
+
+        RemoveAllColliders(fishObject);
+        DisableFishMotion(fishObject);
+
+        fishRenderer = fishObject.GetComponentInChildren<Renderer>(true);
+        if (fishRenderer != null)
+        {
+            fishRenderer.material.color = new Color(0.86f, 0.73f, 0.44f, 1f);
+        }
+
+        return fishRoot;
+    }
+
+    private void DisableFishMotion(GameObject fishObject)
+    {
+        var behaviours = fishObject.GetComponentsInChildren<MonoBehaviour>(true);
+        foreach (var behaviour in behaviours)
+        {
+            if (behaviour == null)
+            {
+                continue;
+            }
+
+            if (behaviour is MushroomSoupSceneBootstrap || behaviour is CanalFishSchool)
+            {
+                continue;
+            }
+
+            behaviour.enabled = false;
+        }
+
+        var animators = fishObject.GetComponentsInChildren<Animator>(true);
+        foreach (var animator in animators)
+        {
+            animator.enabled = false;
+        }
+
+        var animations = fishObject.GetComponentsInChildren<Animation>(true);
+        foreach (var animationComponent in animations)
+        {
+            animationComponent.enabled = false;
+        }
     }
 
     private Bounds CalculateRendererBounds(GameObject target)
