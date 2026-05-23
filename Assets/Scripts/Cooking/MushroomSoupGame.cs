@@ -124,6 +124,16 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void Update()
     {
+        if (ForestStoryIntroOverlay.IsBlockingInput)
+        {
+            if (cookingCanvas != null)
+            {
+                cookingCanvas.enabled = false;
+            }
+
+            return;
+        }
+
         UpdateInteractionState();
         if (playerInRange)
         {

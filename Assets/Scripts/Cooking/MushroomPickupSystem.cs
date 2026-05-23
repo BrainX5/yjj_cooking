@@ -56,6 +56,13 @@ public class MushroomPickupSystem : MonoBehaviour
 
     private void Update()
     {
+        if (ForestStoryIntroOverlay.IsBlockingInput)
+        {
+            SetCurrentTarget(null);
+            RefreshPrompt();
+            return;
+        }
+
         if (NeedsRescan())
         {
             CacheSceneMushrooms();
@@ -464,7 +471,7 @@ public class MushroomPickupSystem : MonoBehaviour
             return;
         }
 
-        var visible = currentTarget != null;
+        var visible = currentTarget != null && !ForestStoryIntroOverlay.IsBlockingInput;
         promptCanvas.enabled = visible;
         if (!visible)
         {

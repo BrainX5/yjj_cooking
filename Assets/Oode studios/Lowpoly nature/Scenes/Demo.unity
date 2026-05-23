@@ -18061,6 +18061,7 @@ MonoBehaviour:
   - {fileID: 3856486307241027648, guid: fbc2b1e1ae34692449ee6dddb00980aa, type: 3}
   - {fileID: 7068450825822184893, guid: 3151f6e9c0c2cb742b802fd9d97062aa, type: 3}
   - {fileID: 2757255908890056845, guid: 09cfa1408fad6934aa8bd8efa894959a, type: 3}
+  showOpeningStory: 1
 --- !u!4 &2122338789 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4525886116887409402, guid: fbc2b1e1ae34692449ee6dddb00980aa, type: 3}

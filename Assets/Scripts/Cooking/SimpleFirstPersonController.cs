@@ -54,6 +54,12 @@ public class SimpleFirstPersonController : MonoBehaviour
 
     private void Update()
     {
+        if (ForestStoryIntroOverlay.IsBlockingInput)
+        {
+            LockCursor(false);
+            return;
+        }
+
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             LockCursor(false);

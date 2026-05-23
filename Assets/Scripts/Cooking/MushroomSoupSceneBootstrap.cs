@@ -46,6 +46,9 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private int harvestMushroomCount = 0;
     [SerializeField] private GameObject[] harvestMushroomPrefabs;
 
+    [Header("Opening Story")]
+    [SerializeField] private bool showOpeningStory = true;
+
     private Font uiFont;
 
     private void Start()
@@ -70,6 +73,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         if (enableMushroomHarvesting)
         {
             EnsureMushroomPickupSystem();
+        }
+
+        if (showOpeningStory)
+        {
+            EnsureOpeningStoryOverlay();
         }
     }
 
@@ -622,6 +630,16 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             fencesName,
             harvestMushroomCount,
             harvestMushroomPrefabs);
+    }
+
+    private void EnsureOpeningStoryOverlay()
+    {
+        if (FindObjectOfType<ForestStoryIntroOverlay>() != null)
+        {
+            return;
+        }
+
+        new GameObject("ForestStoryIntroOverlay").AddComponent<ForestStoryIntroOverlay>();
     }
 
     private void CreateGround()
