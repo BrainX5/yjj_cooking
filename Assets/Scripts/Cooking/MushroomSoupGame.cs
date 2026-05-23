@@ -159,7 +159,7 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void ReadInput()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.Space) && !MushroomPickupSystem.HasFocusedHarvestable)
         {
             firePower = Mathf.Clamp(firePower + fireGainPerSpace, 0f, maxFirePower);
         }
