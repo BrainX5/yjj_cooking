@@ -15,9 +15,19 @@ public class MushroomSoupGame : MonoBehaviour
         Completed
     }
 
+    private enum FishCatchState
+    {
+        Locked,
+        NeedToCatch,
+        Catching,
+        Escaped,
+        Caught
+    }
+
     [Header("Scene References")]
     [SerializeField] private ParticleSystem fireEffect;
     [SerializeField] private Transform playerTransform;
+    [SerializeField] private Transform waterRoot;
     [SerializeField] private Transform potVisual;
     [SerializeField] private Transform soupSurface;
     [SerializeField] private Renderer soupRenderer;
@@ -27,6 +37,8 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private GameObject mushroomVisualPrefab;
 
     [Header("UI")]
+    [SerializeField] private GameObject cookingPanel;
+    [SerializeField] private GameObject fishingPanel;
     [SerializeField] private Text titleText;
     [SerializeField] private Text promptText;
     [SerializeField] private Text fireValueText;
@@ -36,9 +48,17 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private Text progressSliderLabelText;
     [SerializeField] private Slider progressSlider;
     [SerializeField] private Slider fireSlider;
+    [SerializeField] private Text fishTitleText;
+    [SerializeField] private Text fishPromptText;
+    [SerializeField] private Text fishStatusText;
+    [SerializeField] private Text fishCatchButtonText;
+    [SerializeField] private Text fishSliderLabelText;
+    [SerializeField] private Slider fishCatchSlider;
 
     [Header("Cooking Settings")]
     [SerializeField] private float interactionDistance = 4.5f;
+    [SerializeField] private float riverInteractionDistance = 3.8f;
+    [SerializeField] private float fishingUnlockDistanceFromPot = 7.5f;
     [SerializeField] private float fireDecayPerSecond = 0.9f;
     [SerializeField] private float fireGainPerSpace = 0.18f;
     [SerializeField] private float maxFirePower = 1f;
@@ -50,8 +70,14 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private float fireSpeedRange = 0.85f;
     [SerializeField] private float baseFireSize = 0.22f;
     [SerializeField] private float fireSizeRange = 0.35f;
+    [SerializeField] private float fishGripGainPerPress = 0.18f;
+    [SerializeField] private float fishGripDecayPerSecond = 0.23f;
+    [SerializeField] private float fishGripThreshold = 0.72f;
+    [SerializeField] private float fishCatchHoldDuration = 6f;
+    [SerializeField] private float fishEscapePressGap = 0.45f;
 
     private SoupStage stage = SoupStage.HeatingToQuarter;
+    private FishCatchState fishCatchState = FishCatchState.Locked;
     private float firePower;
     private float cookProgress;
     private int mushroomsAdded;
@@ -63,13 +89,20 @@ public class MushroomSoupGame : MonoBehaviour
     private Quaternion stirStickBaseLocalRotation = Quaternion.identity;
     private float stirAnimationTimer;
     private float mushroomAnimationTimer;
+    private float fishGrip;
+    private float fishHoldTimer;
+    private float fishLastPressTime = -999f;
+    private float fishStatusMessageTimer;
+    private string fishStatusMessage = string.Empty;
     private Transform activeMushroomVisual;
-    private Canvas cookingCanvas;
-    private bool playerInRange;
+    private bool playerInCookingRange;
+    private bool playerNearRiver;
+    private bool playerFarEnoughFromPotForFishing;
 
     public void Initialize(
         ParticleSystem sceneFireEffect,
         Transform scenePlayerTransform,
+        Transform sceneWaterRoot,
         Transform scenePotVisual,
         Transform sceneSoupSurface,
         Renderer sceneSoupRenderer,
@@ -77,6 +110,8 @@ public class MushroomSoupGame : MonoBehaviour
         Transform sceneMushroomSpawnPoint,
         Transform sceneMushroomTargetPoint,
         GameObject sceneMushroomVisualPrefab,
+        GameObject sceneCookingPanel,
+        GameObject sceneFishingPanel,
         Text sceneTitleText,
         Text scenePromptText,
         Text sceneFireValueText,
@@ -85,10 +120,17 @@ public class MushroomSoupGame : MonoBehaviour
         Text sceneFireSliderLabelText,
         Text sceneProgressSliderLabelText,
         Slider sceneProgressSlider,
-        Slider sceneFireSlider)
+        Slider sceneFireSlider,
+        Text sceneFishTitleText,
+        Text sceneFishPromptText,
+        Text sceneFishStatusText,
+        Text sceneFishCatchButtonText,
+        Text sceneFishSliderLabelText,
+        Slider sceneFishCatchSlider)
     {
         fireEffect = sceneFireEffect;
         playerTransform = scenePlayerTransform;
+        waterRoot = sceneWaterRoot;
         potVisual = scenePotVisual;
         soupSurface = sceneSoupSurface;
         soupRenderer = sceneSoupRenderer;
@@ -96,6 +138,8 @@ public class MushroomSoupGame : MonoBehaviour
         mushroomSpawnPoint = sceneMushroomSpawnPoint;
         mushroomTargetPoint = sceneMushroomTargetPoint;
         mushroomVisualPrefab = sceneMushroomVisualPrefab;
+        cookingPanel = sceneCookingPanel;
+        fishingPanel = sceneFishingPanel;
         titleText = sceneTitleText;
         promptText = scenePromptText;
         fireValueText = sceneFireValueText;
@@ -105,7 +149,12 @@ public class MushroomSoupGame : MonoBehaviour
         progressSliderLabelText = sceneProgressSliderLabelText;
         progressSlider = sceneProgressSlider;
         fireSlider = sceneFireSlider;
-        cookingCanvas = titleText != null ? titleText.GetComponentInParent<Canvas>() : null;
+        fishTitleText = sceneFishTitleText;
+        fishPromptText = sceneFishPromptText;
+        fishStatusText = sceneFishStatusText;
+        fishCatchButtonText = sceneFishCatchButtonText;
+        fishSliderLabelText = sceneFishSliderLabelText;
+        fishCatchSlider = sceneFishCatchSlider;
 
         CacheVisualState();
         UpdateInteractionState();
@@ -115,7 +164,6 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void Start()
     {
-        cookingCanvas = titleText != null ? titleText.GetComponentInParent<Canvas>() : cookingCanvas;
         CacheVisualState();
         UpdateInteractionState();
         RefreshUI();
@@ -125,13 +173,19 @@ public class MushroomSoupGame : MonoBehaviour
     private void Update()
     {
         UpdateInteractionState();
-        if (playerInRange)
+
+        if (playerNearRiver && IsFishCatchUnlocked())
         {
-            ReadInput();
+            ReadFishInput();
+        }
+        else if (playerInCookingRange)
+        {
+            ReadCookingInput();
         }
 
         UpdateFirePower();
         UpdateCookingProgress();
+        UpdateFishCatch();
         UpdateAnimations();
         UpdateSoupSurface();
         UpdateFireVisuals();
@@ -157,7 +211,7 @@ public class MushroomSoupGame : MonoBehaviour
         }
     }
 
-    private void ReadInput()
+    private void ReadCookingInput()
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
@@ -183,9 +237,39 @@ public class MushroomSoupGame : MonoBehaviour
         }
     }
 
+    private void ReadFishInput()
+    {
+        if (!Input.GetKeyDown(KeyCode.Space) || fishCatchState == FishCatchState.Caught)
+        {
+            return;
+        }
+
+        if (fishCatchState == FishCatchState.Escaped)
+        {
+            fishStatusMessage = "重新准备，猛按空格键把鱼抓稳。";
+            fishStatusMessageTimer = 1.5f;
+            fishCatchState = FishCatchState.NeedToCatch;
+        }
+
+        if (fishCatchState == FishCatchState.NeedToCatch)
+        {
+            fishCatchState = FishCatchState.Catching;
+            fishGrip = 0.22f;
+            fishHoldTimer = 0f;
+            fishStatusMessage = "抓到了！快速连续按空格，别让它逃走。";
+            fishStatusMessageTimer = 1.2f;
+        }
+        else if (fishCatchState == FishCatchState.Catching)
+        {
+            fishGrip = Mathf.Clamp01(fishGrip + fishGripGainPerPress);
+        }
+
+        fishLastPressTime = Time.time;
+    }
+
     private void UpdateFirePower()
     {
-        if (!playerInRange)
+        if (!playerInCookingRange)
         {
             return;
         }
@@ -195,7 +279,7 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void UpdateCookingProgress()
     {
-        if (!playerInRange)
+        if (!playerInCookingRange)
         {
             return;
         }
@@ -235,6 +319,7 @@ public class MushroomSoupGame : MonoBehaviour
         {
             cookProgress = 1f;
             stage = SoupStage.Completed;
+            fishCatchState = FishCatchState.NeedToCatch;
             TintSoup(new Color(0.84f, 0.77f, 0.56f, 1f));
         }
     }
@@ -431,19 +516,35 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void RefreshUI()
     {
-        if (cookingCanvas != null)
+        var showCookingPanel = playerInCookingRange;
+        var showFishingPanel = playerNearRiver && playerFarEnoughFromPotForFishing && IsFishCatchUnlocked();
+
+        if (cookingPanel != null)
         {
-            cookingCanvas.enabled = playerInRange;
+            cookingPanel.SetActive(showCookingPanel);
         }
 
-        if (!playerInRange)
+        if (fishingPanel != null)
         {
-            return;
+            fishingPanel.SetActive(showFishingPanel);
         }
 
+        if (showCookingPanel)
+        {
+            RefreshCookingUI();
+        }
+
+        if (showFishingPanel)
+        {
+            RefreshFishingUI();
+        }
+    }
+
+    private void RefreshCookingUI()
+    {
         if (titleText != null)
         {
-            titleText.text = "\u8611\u83c7\u6c64";
+            titleText.text = "蘑菇汤";
         }
 
         if (promptText != null)
@@ -456,27 +557,27 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (fireValueText != null)
         {
-            fireValueText.text = $"\u5f53\u524d\u706b\u529b: {firePower:0.00}";
+            fireValueText.text = $"当前火力: {firePower:0.00}";
         }
 
         if (progressText != null)
         {
-            progressText.text = $"\u5f53\u524d\u716e\u996d\u8fdb\u5ea6: {(cookProgress * 100f):0}%";
+            progressText.text = $"当前煮饭进度: {(cookProgress * 100f):0}%";
         }
 
         if (mushroomCountText != null)
         {
-            mushroomCountText.text = $"\u5df2\u52a0\u8611\u83c7: {mushroomsAdded}/{mushroomsNeeded}";
+            mushroomCountText.text = $"已加蘑菇: {mushroomsAdded}/{mushroomsNeeded}";
         }
 
         if (fireSliderLabelText != null)
         {
-            fireSliderLabelText.text = "\u706b\u529b\u503c";
+            fireSliderLabelText.text = "火力值";
         }
 
         if (progressSliderLabelText != null)
         {
-            progressSliderLabelText.text = "\u716e\u996d\u8fdb\u5ea6";
+            progressSliderLabelText.text = "煮饭进度";
         }
 
         if (progressSlider != null)
@@ -490,29 +591,157 @@ public class MushroomSoupGame : MonoBehaviour
         }
     }
 
+    private void RefreshFishingUI()
+    {
+        if (fishTitleText != null)
+        {
+            fishTitleText.text = "捉鱼";
+        }
+
+        if (fishPromptText != null)
+        {
+            fishPromptText.text = GetFishPrompt();
+        }
+
+        if (fishStatusText != null)
+        {
+            fishStatusText.text = GetFishStatusText();
+        }
+
+        if (fishCatchButtonText != null)
+        {
+            fishCatchButtonText.text = fishCatchState == FishCatchState.Catching
+                ? "[ 空格 ] 持续猛按，把鱼抓稳"
+                : "[ 空格 ] 开始捉鱼";
+        }
+
+        if (fishSliderLabelText != null)
+        {
+            fishSliderLabelText.text = "抓紧程度";
+        }
+
+        if (fishCatchSlider != null)
+        {
+            fishCatchSlider.value = fishGrip;
+        }
+    }
+
     private string GetPrompt()
     {
         switch (stage)
         {
             case SoupStage.HeatingToQuarter:
-                return "\u5feb\u901f\u6309\u7a7a\u683c\u952e\u5347\u9ad8\u706b\u529b\uff0c\u628a\u8611\u83c7\u6c64\u716e\u5230 1/4 \u8fdb\u5ea6\u3002";
+                return "快速按空格键升高火力，把蘑菇汤煮到 1/4 进度。";
             case SoupStage.NeedMushroom:
-                return "\u63d0\u793a\uff1a\u73b0\u5728\u9700\u8981\u52a0\u8611\u83c7\uff0c\u8bf7\u6309\u4e0a\u952e\u6216\u4e0b\u952e\u628a\u8611\u83c7\u4e22\u8fdb\u9505\u91cc\u3002";
+                return "提示：现在需要加蘑菇，请按上键或下键把蘑菇丢进锅里。";
             case SoupStage.HeatingToHalf:
-                return "\u8611\u83c7\u5df2\u7ecf\u4e0b\u9505\uff0c\u7ee7\u7eed\u52a0\u70ed\uff0c\u628a\u8fdb\u5ea6\u63a8\u8fdb\u5230 2/4\u3002";
+                return "蘑菇已经下锅，继续加热，把进度推进到 2/4。";
             case SoupStage.NeedFirstStir:
-                return "\u63d0\u793a\uff1a\u73b0\u5728\u9700\u8981\u7b2c\u4e00\u6b21\u6405\u62cc\uff0c\u8bf7\u5de6\u53f3\u952e\u5404\u6309\u4e00\u6b21\u3002";
+                return "提示：现在需要第一次搅拌，请左右键各按一次。";
             case SoupStage.HeatingToThreeQuarters:
-                return "\u7b2c\u4e00\u6b21\u6405\u62cc\u5b8c\u6210\uff0c\u7ee7\u7eed\u52a0\u70ed\uff0c\u628a\u8fdb\u5ea6\u63a8\u8fdb\u5230 3/4\u3002";
+                return "第一次搅拌完成，继续加热，把进度推进到 3/4。";
             case SoupStage.NeedSecondStir:
-                return "\u63d0\u793a\uff1a\u73b0\u5728\u9700\u8981\u7b2c\u4e8c\u6b21\u6405\u62cc\uff0c\u8bf7\u5de6\u53f3\u952e\u5404\u6309\u4e00\u6b21\u3002";
+                return "提示：现在需要第二次搅拌，请左右键各按一次。";
             case SoupStage.HeatingToDone:
-                return "\u6700\u540e\u6536\u6c41\u52a0\u70ed\uff0c\u9a6c\u4e0a\u5c31\u5b8c\u6210\u4e86\u3002";
+                return "最后收汁加热，马上就完成了。";
             case SoupStage.Completed:
-                return "\u8611\u83c7\u6c64\u5236\u4f5c\u5b8c\u6210\u3002";
+                return "蘑菇汤制作完成。下一道菜是鱼汤，请先去河边捉鱼。";
             default:
                 return string.Empty;
         }
+    }
+
+    private void UpdateFishCatch()
+    {
+        if (!IsFishCatchUnlocked())
+        {
+            return;
+        }
+
+        if (fishStatusMessageTimer > 0f)
+        {
+            fishStatusMessageTimer -= Time.deltaTime;
+            if (fishStatusMessageTimer <= 0f)
+            {
+                fishStatusMessage = string.Empty;
+            }
+        }
+
+        if (!playerNearRiver || fishCatchState != FishCatchState.Catching)
+        {
+            return;
+        }
+
+        fishGrip = Mathf.Clamp01(fishGrip - fishGripDecayPerSecond * Time.deltaTime);
+
+        if (fishGrip >= fishGripThreshold)
+        {
+            fishHoldTimer += Time.deltaTime;
+        }
+        else
+        {
+            fishHoldTimer = 0f;
+        }
+
+        if (fishHoldTimer >= fishCatchHoldDuration)
+        {
+            fishCatchState = FishCatchState.Caught;
+            fishGrip = 1f;
+            fishStatusMessage = "恭喜你捉到一只鱼！接下来可以准备煮鱼汤了。";
+            fishStatusMessageTimer = 4f;
+            return;
+        }
+
+        if (Time.time - fishLastPressTime > fishEscapePressGap || fishGrip <= 0.02f)
+        {
+            fishCatchState = FishCatchState.Escaped;
+            fishGrip = 0f;
+            fishHoldTimer = 0f;
+            fishStatusMessage = "你按得太慢了，鱼逃走了！";
+            fishStatusMessageTimer = 2.4f;
+        }
+    }
+
+    private string GetFishPrompt()
+    {
+        switch (fishCatchState)
+        {
+            case FishCatchState.NeedToCatch:
+                return "鱼汤的第一步是去河边捉鱼。按空格开始，然后快速连续按 6 秒。";
+            case FishCatchState.Catching:
+                return "按得越快，鱼抓得越紧。一旦慢下来，鱼就会挣脱。";
+            case FishCatchState.Escaped:
+                return "鱼刺溜走了，准备好后可以再试一次。";
+            case FishCatchState.Caught:
+                return "你已经捉到了鱼，鱼汤的食材到手了。";
+            default:
+                return string.Empty;
+        }
+    }
+
+    private string GetFishStatusText()
+    {
+        if (!string.IsNullOrEmpty(fishStatusMessage))
+        {
+            return fishStatusMessage;
+        }
+
+        if (fishCatchState == FishCatchState.Catching)
+        {
+            return $"鱼还在挣扎！高速连按已坚持: {fishHoldTimer:0.0}/{fishCatchHoldDuration:0.0} 秒";
+        }
+
+        if (fishCatchState == FishCatchState.Caught)
+        {
+            return "恭喜你捉到一只鱼。";
+        }
+
+        return "走到河边后，就会出现捉鱼按钮和进度条。";
+    }
+
+    private bool IsFishCatchUnlocked()
+    {
+        return fishCatchState != FishCatchState.Locked;
     }
 
     private void TintSoup(Color targetColor)
@@ -554,17 +783,38 @@ public class MushroomSoupGame : MonoBehaviour
             playerTransform = FindPlayerTransform();
         }
 
-        if (playerTransform == null || potVisual == null)
+        if (waterRoot == null)
         {
-            playerInRange = false;
+            waterRoot = FindWaterTransform();
+        }
+
+        if (playerTransform == null)
+        {
+            playerInCookingRange = false;
+            playerNearRiver = false;
+            playerFarEnoughFromPotForFishing = false;
             return;
         }
 
-        var playerPosition = playerTransform.position;
-        var potPosition = potVisual.position;
-        playerPosition.y = 0f;
-        potPosition.y = 0f;
-        playerInRange = Vector3.Distance(playerPosition, potPosition) <= interactionDistance;
+        playerInCookingRange = false;
+        playerNearRiver = false;
+        playerFarEnoughFromPotForFishing = true;
+
+        if (potVisual != null)
+        {
+            var playerPosition = playerTransform.position;
+            var potPosition = potVisual.position;
+            playerPosition.y = 0f;
+            potPosition.y = 0f;
+            var distanceToPot = Vector3.Distance(playerPosition, potPosition);
+            playerInCookingRange = distanceToPot <= interactionDistance;
+            playerFarEnoughFromPotForFishing = distanceToPot >= fishingUnlockDistanceFromPot;
+        }
+
+        if (waterRoot != null)
+        {
+            playerNearRiver = IsNearWater(playerTransform.position);
+        }
     }
 
     private Transform FindPlayerTransform()
@@ -583,5 +833,50 @@ public class MushroomSoupGame : MonoBehaviour
 
         var controller = FindObjectOfType<CharacterController>();
         return controller != null ? controller.transform : null;
+    }
+
+    private Transform FindWaterTransform()
+    {
+        var direct = GameObject.Find("Water");
+        if (direct != null)
+        {
+            return direct.transform;
+        }
+
+        var renderers = FindObjectsOfType<Renderer>(true);
+        foreach (var item in renderers)
+        {
+            if (item != null && item.name.ToLowerInvariant().Contains("water"))
+            {
+                return item.transform;
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsNearWater(Vector3 playerPosition)
+    {
+        var bounds = CalculateBounds(waterRoot.gameObject);
+        var closestPoint = bounds.ClosestPoint(playerPosition);
+        closestPoint.y = playerPosition.y;
+        return Vector3.Distance(playerPosition, closestPoint) <= riverInteractionDistance;
+    }
+
+    private Bounds CalculateBounds(GameObject target)
+    {
+        var renderers = target.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            return new Bounds(target.transform.position, Vector3.one * 3f);
+        }
+
+        var bounds = renderers[0].bounds;
+        for (var i = 1; i < renderers.Length; i++)
+        {
+            bounds.Encapsulate(renderers[i].bounds);
+        }
+
+        return bounds;
     }
 }

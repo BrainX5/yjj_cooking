@@ -99,10 +99,29 @@ public class SimpleFirstPersonController : MonoBehaviour
 
     private void UpdateMovement()
     {
-        var input = new Vector3(
-            Input.GetAxisRaw("Horizontal"),
-            0f,
-            Input.GetAxisRaw("Vertical"));
+        var horizontal = 0f;
+        if (Input.GetKey(KeyCode.A))
+        {
+            horizontal -= 1f;
+        }
+
+        if (Input.GetKey(KeyCode.D))
+        {
+            horizontal += 1f;
+        }
+
+        var vertical = 0f;
+        if (Input.GetKey(KeyCode.W))
+        {
+            vertical += 1f;
+        }
+
+        if (Input.GetKey(KeyCode.S))
+        {
+            vertical -= 1f;
+        }
+
+        var input = new Vector3(horizontal, 0f, vertical);
         input = Vector3.ClampMagnitude(input, 1f);
 
         var speed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed : walkSpeed;

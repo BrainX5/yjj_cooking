@@ -114,6 +114,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 
         CreateUiCanvas(
+            out var cookingPanel,
+            out var fishingPanel,
             out var titleText,
             out var promptText,
             out var fireValueText,
@@ -122,13 +124,20 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             out var fireSliderLabelText,
             out var progressSliderLabelText,
             out var progressSlider,
-            out var fireSlider);
+            out var fireSlider,
+            out var fishTitleText,
+            out var fishPromptText,
+            out var fishStatusText,
+            out var fishCatchButtonText,
+            out var fishSliderLabelText,
+            out var fishCatchSlider);
 
         var gameObject = new GameObject("MushroomSoupGame");
         var game = gameObject.AddComponent<MushroomSoupGame>();
         game.Initialize(
             fire,
             FindPrimaryActor(false),
+            FindNamedTransform(waterRootName, waterRootName),
             pot,
             soupSurface,
             soupRenderer,
@@ -136,6 +145,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             mushroomSpawnPoint,
             mushroomTargetPoint,
             mushroomPrefab,
+            cookingPanel,
+            fishingPanel,
             titleText,
             promptText,
             fireValueText,
@@ -144,7 +155,13 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             fireSliderLabelText,
             progressSliderLabelText,
             progressSlider,
-            fireSlider);
+            fireSlider,
+            fishTitleText,
+            fishPromptText,
+            fishStatusText,
+            fishCatchButtonText,
+            fishSliderLabelText,
+            fishCatchSlider);
     }
 
     private Camera EnsureCamera()
@@ -1025,6 +1042,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     }
 
     private void CreateUiCanvas(
+        out GameObject cookingPanel,
+        out GameObject fishingPanel,
         out Text titleText,
         out Text promptText,
         out Text fireValueText,
@@ -1033,7 +1052,13 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         out Text fireSliderLabelText,
         out Text progressSliderLabelText,
         out Slider progressSlider,
-        out Slider fireSlider)
+        out Slider fireSlider,
+        out Text fishTitleText,
+        out Text fishPromptText,
+        out Text fishStatusText,
+        out Text fishCatchButtonText,
+        out Text fishSliderLabelText,
+        out Slider fishCatchSlider)
     {
         var canvasObject = new GameObject("Cooking UI");
         var canvas = canvasObject.AddComponent<Canvas>();
@@ -1045,17 +1070,42 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
 
         canvasObject.AddComponent<GraphicRaycaster>();
 
-        titleText = CreateText(canvas.transform, "Title", new Vector2(40f, -40f), new Vector2(420f, 60f), 34, FontStyle.Bold);
-        promptText = CreateText(canvas.transform, "Prompt", new Vector2(40f, -100f), new Vector2(980f, 120f), 28, FontStyle.Bold);
-        fireValueText = CreateText(canvas.transform, "FireText", new Vector2(40f, -225f), new Vector2(420f, 42f), 22, FontStyle.Normal);
-        progressText = CreateText(canvas.transform, "ProgressText", new Vector2(40f, -270f), new Vector2(420f, 42f), 22, FontStyle.Normal);
-        mushroomCountText = CreateText(canvas.transform, "MushroomText", new Vector2(40f, -315f), new Vector2(420f, 42f), 22, FontStyle.Normal);
+        cookingPanel = new GameObject("CookingPanel");
+        cookingPanel.transform.SetParent(canvas.transform);
+        ConfigurePanelRect(cookingPanel);
+        fishingPanel = new GameObject("FishingPanel");
+        fishingPanel.transform.SetParent(canvas.transform);
+        ConfigurePanelRect(fishingPanel);
 
-        fireSliderLabelText = CreateText(canvas.transform, "FireSliderLabel", new Vector2(40f, -370f), new Vector2(180f, 34f), 22, FontStyle.Bold);
-        fireSlider = CreateSlider(canvas.transform, "FireSlider", new Vector2(220f, -364f), new Color(0.95f, 0.45f, 0.08f, 1f));
+        titleText = CreateText(cookingPanel.transform, "Title", new Vector2(40f, -40f), new Vector2(420f, 60f), 34, FontStyle.Bold);
+        promptText = CreateText(cookingPanel.transform, "Prompt", new Vector2(40f, -100f), new Vector2(980f, 120f), 28, FontStyle.Bold);
+        fireValueText = CreateText(cookingPanel.transform, "FireText", new Vector2(40f, -225f), new Vector2(420f, 42f), 22, FontStyle.Normal);
+        progressText = CreateText(cookingPanel.transform, "ProgressText", new Vector2(40f, -270f), new Vector2(420f, 42f), 22, FontStyle.Normal);
+        mushroomCountText = CreateText(cookingPanel.transform, "MushroomText", new Vector2(40f, -315f), new Vector2(420f, 42f), 22, FontStyle.Normal);
 
-        progressSliderLabelText = CreateText(canvas.transform, "ProgressSliderLabel", new Vector2(40f, -430f), new Vector2(180f, 34f), 22, FontStyle.Bold);
-        progressSlider = CreateSlider(canvas.transform, "ProgressSlider", new Vector2(220f, -424f), new Color(0.62f, 0.76f, 0.32f, 1f));
+        fireSliderLabelText = CreateText(cookingPanel.transform, "FireSliderLabel", new Vector2(40f, -370f), new Vector2(180f, 34f), 22, FontStyle.Bold);
+        fireSlider = CreateSlider(cookingPanel.transform, "FireSlider", new Vector2(220f, -364f), new Color(0.95f, 0.45f, 0.08f, 1f));
+
+        progressSliderLabelText = CreateText(cookingPanel.transform, "ProgressSliderLabel", new Vector2(40f, -430f), new Vector2(180f, 34f), 22, FontStyle.Bold);
+        progressSlider = CreateSlider(cookingPanel.transform, "ProgressSlider", new Vector2(220f, -424f), new Color(0.62f, 0.76f, 0.32f, 1f));
+
+        fishTitleText = CreateText(fishingPanel.transform, "FishTitle", new Vector2(40f, -40f), new Vector2(420f, 60f), 34, FontStyle.Bold);
+        fishPromptText = CreateText(fishingPanel.transform, "FishPrompt", new Vector2(40f, -100f), new Vector2(980f, 120f), 28, FontStyle.Bold);
+        fishStatusText = CreateText(fishingPanel.transform, "FishStatus", new Vector2(40f, -235f), new Vector2(760f, 48f), 24, FontStyle.Normal);
+        fishCatchButtonText = CreateText(fishingPanel.transform, "FishCatchButton", new Vector2(40f, -300f), new Vector2(540f, 54f), 28, FontStyle.Bold);
+        fishSliderLabelText = CreateText(fishingPanel.transform, "FishSliderLabel", new Vector2(40f, -380f), new Vector2(180f, 34f), 22, FontStyle.Bold);
+        fishCatchSlider = CreateSlider(fishingPanel.transform, "FishCatchSlider", new Vector2(220f, -374f), new Color(0.2f, 0.8f, 0.95f, 1f));
+
+        fishingPanel.SetActive(false);
+    }
+
+    private void ConfigurePanelRect(GameObject panelObject)
+    {
+        var rect = panelObject.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
     }
 
     private Text CreateText(Transform parent, string name, Vector2 anchoredPosition, Vector2 size, int fontSize, FontStyle fontStyle)
