@@ -645,7 +645,7 @@ public class MushroomSoupGame : MonoBehaviour
             case SoupStage.HeatingToDone:
                 return "最后收汁加热，马上就完成了。";
             case SoupStage.Completed:
-                return "蘑菇汤制作完成。下一道菜是鱼汤，请先去河边捉鱼。";
+                return "蘑菇汤制作完成。下一道菜是煎鱼，请先去河边捉鱼。";
             default:
                 return string.Empty;
         }
@@ -687,7 +687,7 @@ public class MushroomSoupGame : MonoBehaviour
         {
             fishCatchState = FishCatchState.Caught;
             fishGrip = 1f;
-            fishStatusMessage = "恭喜你捉到一只鱼！接下来可以准备煮鱼汤了。";
+            fishStatusMessage = "恭喜你捉到一只鱼！接下来可以准备做煎鱼了。";
             fishStatusMessageTimer = 4f;
             return;
         }
@@ -707,13 +707,13 @@ public class MushroomSoupGame : MonoBehaviour
         switch (fishCatchState)
         {
             case FishCatchState.NeedToCatch:
-                return "鱼汤的第一步是去河边捉鱼。按空格开始，然后快速连续按 6 秒。";
+                return "煎鱼的第一步是去河边捉鱼。按空格开始，然后快速连续按 6 秒。";
             case FishCatchState.Catching:
                 return "按得越快，鱼抓得越紧。一旦慢下来，鱼就会挣脱。";
             case FishCatchState.Escaped:
-                return "鱼刺溜走了，准备好后可以再试一次。";
+                return "鱼溜走了，准备好后可以再试一次。";
             case FishCatchState.Caught:
-                return "你已经捉到了鱼，鱼汤的食材到手了。";
+                return "你已经捉到了鱼，煎鱼的食材到手了。";
             default:
                 return string.Empty;
         }
