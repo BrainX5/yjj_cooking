@@ -44,6 +44,16 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private Vector3 fryFishLocalRotation = new Vector3(0f, 90f, 0f);
     [SerializeField] private float fryFishPanFill = 0.39f;
 
+    [Header("Harvest Mushrooms")]
+    [SerializeField] private bool enableMushroomHarvesting = true;
+    [SerializeField] private string bridgeName = "Bridge";
+    [SerializeField] private string fencesName = "Fences";
+    [SerializeField] private int harvestMushroomCount = 0;
+    [SerializeField] private GameObject[] harvestMushroomPrefabs;
+
+    [Header("Opening Story")]
+    [SerializeField] private bool showOpeningStory = true;
+
     private Font uiFont;
 
     private void Start()
@@ -63,6 +73,16 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         if (populateCanalWithFish)
         {
             EnsureCanalFishSchool();
+        }
+
+        if (enableMushroomHarvesting)
+        {
+            EnsureMushroomPickupSystem();
+        }
+
+        if (showOpeningStory)
+        {
+            EnsureOpeningStoryOverlay();
         }
     }
 
@@ -619,6 +639,33 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         var fishSchool = fishSchoolObject.AddComponent<CanalFishSchool>();
         fishSchool.Configure(waterRoot, canalFishCount, canalFishPrefab, fishPrefabPath, canalFishPadding);
         Debug.Log($"Created CanalFishSchool on {waterRoot.name} with {canalFishCount} fish.", fishSchoolObject);
+    }
+
+    private void EnsureMushroomPickupSystem()
+    {
+        var pickupSystem = FindObjectOfType<MushroomPickupSystem>();
+        if (pickupSystem == null)
+        {
+            pickupSystem = new GameObject("MushroomPickupSystem").AddComponent<MushroomPickupSystem>();
+        }
+
+        pickupSystem.Configure(
+            mushroomHouseName,
+            mushroomHouseDoorName,
+            bridgeName,
+            fencesName,
+            harvestMushroomCount,
+            harvestMushroomPrefabs);
+    }
+
+    private void EnsureOpeningStoryOverlay()
+    {
+        if (FindObjectOfType<ForestStoryIntroOverlay>() != null)
+        {
+            return;
+        }
+
+        new GameObject("ForestStoryIntroOverlay").AddComponent<ForestStoryIntroOverlay>();
     }
 
     private void CreateGround()
