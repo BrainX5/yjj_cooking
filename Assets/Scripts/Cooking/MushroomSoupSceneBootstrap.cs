@@ -54,6 +54,9 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [Header("Opening Story")]
     [SerializeField] private bool showOpeningStory = true;
 
+    [Header("HybridBCI Platform")]
+    [SerializeField] private bool enableHybridBciPlatformBridge = true;
+
     private Font uiFont;
 
     private void Start()
@@ -83,6 +86,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         if (showOpeningStory)
         {
             EnsureOpeningStoryOverlay();
+        }
+
+        if (enableHybridBciPlatformBridge)
+        {
+            EnsureHybridBciPlatformBridge();
         }
     }
 
@@ -666,6 +674,16 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 
         new GameObject("ForestStoryIntroOverlay").AddComponent<ForestStoryIntroOverlay>();
+    }
+
+    private void EnsureHybridBciPlatformBridge()
+    {
+        if (FindObjectOfType<HybridBciPlatformBridge>() != null)
+        {
+            return;
+        }
+
+        new GameObject("HybridBciPlatformBridge").AddComponent<HybridBciPlatformBridge>();
     }
 
     private void CreateGround()
