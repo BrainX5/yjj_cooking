@@ -954,14 +954,6 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         stick.GetComponent<Renderer>().material.color = new Color(0.48f, 0.31f, 0.14f, 1f);
         DestroyCollider(stick);
 
-        var spoon = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        spoon.name = "SpoonHead";
-        spoon.transform.SetParent(stirRoot);
-        spoon.transform.localPosition = new Vector3(0f, -0.62f, 0f);
-        spoon.transform.localScale = new Vector3(0.2f, 0.1f, 0.2f);
-        spoon.GetComponent<Renderer>().material.color = new Color(0.72f, 0.72f, 0.76f, 1f);
-        DestroyCollider(spoon);
-
         return stirRoot;
     }
 
