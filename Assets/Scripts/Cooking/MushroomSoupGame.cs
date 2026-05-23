@@ -228,9 +228,14 @@ public class MushroomSoupGame : MonoBehaviour
     {
         if (ForestStoryIntroOverlay.IsBlockingInput)
         {
-            if (cookingCanvas != null)
+            if (cookingPanel != null)
             {
-                cookingCanvas.enabled = false;
+                cookingPanel.SetActive(false);
+            }
+
+            if (fishingPanel != null)
+            {
+                fishingPanel.SetActive(false);
             }
 
             return;
