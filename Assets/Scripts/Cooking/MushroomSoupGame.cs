@@ -17,6 +17,7 @@ public class MushroomSoupGame : MonoBehaviour
 
     [Header("Scene References")]
     [SerializeField] private ParticleSystem fireEffect;
+    [SerializeField] private Transform playerTransform;
     [SerializeField] private Transform potVisual;
     [SerializeField] private Transform soupSurface;
     [SerializeField] private Renderer soupRenderer;
@@ -37,6 +38,7 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private Slider fireSlider;
 
     [Header("Cooking Settings")]
+    [SerializeField] private float interactionDistance = 4.5f;
     [SerializeField] private float fireDecayPerSecond = 0.9f;
     [SerializeField] private float fireGainPerSpace = 0.18f;
     [SerializeField] private float maxFirePower = 1f;
@@ -62,9 +64,12 @@ public class MushroomSoupGame : MonoBehaviour
     private float stirAnimationTimer;
     private float mushroomAnimationTimer;
     private Transform activeMushroomVisual;
+    private Canvas cookingCanvas;
+    private bool playerInRange;
 
     public void Initialize(
         ParticleSystem sceneFireEffect,
+        Transform scenePlayerTransform,
         Transform scenePotVisual,
         Transform sceneSoupSurface,
         Renderer sceneSoupRenderer,
@@ -83,6 +88,7 @@ public class MushroomSoupGame : MonoBehaviour
         Slider sceneFireSlider)
     {
         fireEffect = sceneFireEffect;
+        playerTransform = scenePlayerTransform;
         potVisual = scenePotVisual;
         soupSurface = sceneSoupSurface;
         soupRenderer = sceneSoupRenderer;
@@ -99,22 +105,31 @@ public class MushroomSoupGame : MonoBehaviour
         progressSliderLabelText = sceneProgressSliderLabelText;
         progressSlider = sceneProgressSlider;
         fireSlider = sceneFireSlider;
+        cookingCanvas = titleText != null ? titleText.GetComponentInParent<Canvas>() : null;
 
         CacheVisualState();
+        UpdateInteractionState();
         RefreshUI();
         UpdateFireVisuals();
     }
 
     private void Start()
     {
+        cookingCanvas = titleText != null ? titleText.GetComponentInParent<Canvas>() : cookingCanvas;
         CacheVisualState();
+        UpdateInteractionState();
         RefreshUI();
         UpdateFireVisuals();
     }
 
     private void Update()
     {
-        ReadInput();
+        UpdateInteractionState();
+        if (playerInRange)
+        {
+            ReadInput();
+        }
+
         UpdateFirePower();
         UpdateCookingProgress();
         UpdateAnimations();
@@ -170,11 +185,21 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void UpdateFirePower()
     {
+        if (!playerInRange)
+        {
+            return;
+        }
+
         firePower = Mathf.MoveTowards(firePower, 0f, fireDecayPerSecond * Time.deltaTime);
     }
 
     private void UpdateCookingProgress()
     {
+        if (!playerInRange)
+        {
+            return;
+        }
+
         if (stage == SoupStage.NeedMushroom ||
             stage == SoupStage.NeedFirstStir ||
             stage == SoupStage.NeedSecondStir ||
@@ -406,6 +431,16 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void RefreshUI()
     {
+        if (cookingCanvas != null)
+        {
+            cookingCanvas.enabled = playerInRange;
+        }
+
+        if (!playerInRange)
+        {
+            return;
+        }
+
         if (titleText != null)
         {
             titleText.text = "\u8611\u83c7\u6c64";
@@ -510,5 +545,43 @@ public class MushroomSoupGame : MonoBehaviour
         {
             Destroy(collider);
         }
+    }
+
+    private void UpdateInteractionState()
+    {
+        if (playerTransform == null)
+        {
+            playerTransform = FindPlayerTransform();
+        }
+
+        if (playerTransform == null || potVisual == null)
+        {
+            playerInRange = false;
+            return;
+        }
+
+        var playerPosition = playerTransform.position;
+        var potPosition = potVisual.position;
+        playerPosition.y = 0f;
+        potPosition.y = 0f;
+        playerInRange = Vector3.Distance(playerPosition, potPosition) <= interactionDistance;
+    }
+
+    private Transform FindPlayerTransform()
+    {
+        try
+        {
+            var playerObject = GameObject.FindGameObjectWithTag("Player");
+            if (playerObject != null)
+            {
+                return playerObject.transform;
+            }
+        }
+        catch (UnityException)
+        {
+        }
+
+        var controller = FindObjectOfType<CharacterController>();
+        return controller != null ? controller.transform : null;
     }
 }

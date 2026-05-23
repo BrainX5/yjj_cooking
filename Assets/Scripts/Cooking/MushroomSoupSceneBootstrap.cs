@@ -27,6 +27,9 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private Vector3 spawnOffset = new Vector3(0f, 0.05f, 0f);
     [SerializeField] private float actorSearchDuration = 5f;
     [SerializeField] private float actorSearchInterval = 0.25f;
+    [SerializeField] private bool autoCreatePlayer = true;
+    [SerializeField] private Vector3 fallbackPlayerPosition = new Vector3(-3.5f, 18.1f, -42f);
+    [SerializeField] private Vector3 fallbackPlayerRotation = new Vector3(10f, 0f, 0f);
 
     [Header("Canal Fish")]
     [SerializeField] private bool populateCanalWithFish = true;
@@ -41,17 +44,21 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     private void Start()
     {
         ApplyMorningLighting();
+        BuildScene();
+        var player = EnsurePlayerRig();
         if (placePlayerAtMushroomHouse)
         {
-            StartCoroutine(PositionPrimaryActorAtMushroomHouse());
+            StartCoroutine(PositionPrimaryActorAtMushroomHouse(player));
+        }
+        else
+        {
+            PositionActorAtCookingSpot(player);
         }
 
         if (populateCanalWithFish)
         {
             EnsureCanalFishSchool();
         }
-
-        BuildScene();
     }
 
     private void BuildScene()
@@ -121,6 +128,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         var game = gameObject.AddComponent<MushroomSoupGame>();
         game.Initialize(
             fire,
+            FindPrimaryActor(false),
             pot,
             soupSurface,
             soupRenderer,
@@ -165,6 +173,112 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         camera.transform.position = new Vector3(0f, 4.4f, -7.2f);
         camera.transform.rotation = Quaternion.Euler(20f, 0f, 0f);
         return camera;
+    }
+
+    private Transform EnsurePlayerRig()
+    {
+        var existingPlayer = FindPrimaryActor(false);
+        if (existingPlayer != null)
+        {
+            EnsurePlayerComponents(existingPlayer);
+            return existingPlayer;
+        }
+
+        if (!autoCreatePlayer)
+        {
+            return Camera.main != null ? Camera.main.transform : null;
+        }
+
+        var playerObject = new GameObject("Player");
+        TryAssignTag(playerObject, "Player");
+        playerObject.transform.position = fallbackPlayerPosition;
+        playerObject.transform.rotation = Quaternion.Euler(0f, fallbackPlayerRotation.y, 0f);
+
+        var controller = playerObject.AddComponent<CharacterController>();
+        controller.height = 1.8f;
+        controller.radius = 0.32f;
+        controller.center = new Vector3(0f, 0.9f, 0f);
+        controller.stepOffset = 0.3f;
+
+        var movement = playerObject.AddComponent<SimpleFirstPersonController>();
+        var camera = AttachOrCreatePlayerCamera(playerObject.transform);
+        movement.SetCamera(camera);
+
+        return playerObject.transform;
+    }
+
+    private void EnsurePlayerComponents(Transform actor)
+    {
+        if (actor == null)
+        {
+            return;
+        }
+
+        var controller = actor.GetComponent<CharacterController>();
+        if (controller == null)
+        {
+            controller = actor.gameObject.AddComponent<CharacterController>();
+            controller.height = 1.8f;
+            controller.radius = 0.32f;
+            controller.center = new Vector3(0f, 0.9f, 0f);
+            controller.stepOffset = 0.3f;
+        }
+
+        var movement = actor.GetComponent<SimpleFirstPersonController>();
+        if (movement == null)
+        {
+            movement = actor.gameObject.AddComponent<SimpleFirstPersonController>();
+        }
+
+        var camera = AttachOrCreatePlayerCamera(actor);
+        movement.SetCamera(camera);
+    }
+
+    private Camera AttachOrCreatePlayerCamera(Transform playerRoot)
+    {
+        var existingCamera = playerRoot.GetComponentInChildren<Camera>(true);
+        if (existingCamera == null)
+        {
+            existingCamera = Camera.main;
+        }
+
+        if (existingCamera == null)
+        {
+            var cameraObject = new GameObject("Main Camera");
+            TryAssignTag(cameraObject, "MainCamera");
+            existingCamera = cameraObject.AddComponent<Camera>();
+            cameraObject.AddComponent<AudioListener>();
+        }
+
+        var cameraTransform = existingCamera.transform;
+        cameraTransform.SetParent(playerRoot);
+        cameraTransform.localPosition = new Vector3(0f, 3.2f, 0f);
+        cameraTransform.localRotation = Quaternion.Euler(12f, 0f, 0f);
+
+        if (existingCamera.GetComponent<AudioListener>() == null)
+        {
+            existingCamera.gameObject.AddComponent<AudioListener>();
+        }
+
+        TryAssignTag(existingCamera.gameObject, "MainCamera");
+        existingCamera.enabled = true;
+        return existingCamera;
+    }
+
+    private void TryAssignTag(GameObject target, string tagName)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        try
+        {
+            target.tag = tagName;
+        }
+        catch (UnityException)
+        {
+        }
     }
 
     private Vector3 ResolveCookingPosition()
@@ -267,14 +381,13 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         EnsureDirectionalLight();
     }
 
-    private IEnumerator PositionPrimaryActorAtMushroomHouse()
+    private IEnumerator PositionPrimaryActorAtMushroomHouse(Transform actor)
     {
         var deadline = Time.time + actorSearchDuration;
 
         while (Time.time <= deadline)
         {
             var door = FindNamedTransform(mushroomHouseDoorName, mushroomHouseName);
-            var actor = FindPrimaryActor();
             if (door != null && actor != null)
             {
                 PlaceActorAtDoor(actor, door);
@@ -283,6 +396,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
 
             yield return new WaitForSeconds(actorSearchInterval);
         }
+
+        PositionActorAtCookingSpot(actor);
     }
 
     private void PlaceActorAtDoor(Transform actor, Transform door)
@@ -303,29 +418,80 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         facing.Normalize();
 
         var spawnPosition = door.position + facing * spawnDistanceFromDoor + spawnOffset;
-        if (Physics.Raycast(spawnPosition + Vector3.up * 4f, Vector3.down, out var hit, 12f, ~0, QueryTriggerInteraction.Ignore))
+        PlaceActorAtPositionAndLook(actor, spawnPosition, facing);
+    }
+
+    private void PositionActorAtCookingSpot(Transform actor)
+    {
+        if (actor == null)
         {
-            spawnPosition.y = hit.point.y;
+            return;
+        }
+
+        var pot = FindExistingPotVisual();
+        if (pot == null)
+        {
+            PlaceActorAtPositionAndLook(actor, fallbackPlayerPosition, Quaternion.Euler(0f, fallbackPlayerRotation.y, 0f) * Vector3.forward);
+            return;
+        }
+
+        var bounds = CalculateRendererBounds(pot.gameObject);
+        var target = bounds.center;
+        var facing = -pot.forward;
+        facing.y = 0f;
+        if (facing.sqrMagnitude < 0.01f)
+        {
+            facing = Vector3.forward;
+        }
+
+        facing.Normalize();
+        var spawnPosition = target + facing * 3.5f + Vector3.up * 0.05f;
+        PlaceActorAtPositionAndLook(actor, spawnPosition, -facing);
+    }
+
+    private void PlaceActorAtPositionAndLook(Transform actor, Vector3 position, Vector3 lookDirection)
+    {
+        if (actor == null)
+        {
+            return;
+        }
+
+        if (lookDirection.sqrMagnitude < 0.01f)
+        {
+            lookDirection = Vector3.forward;
         }
 
         var characterController = actor.GetComponent<CharacterController>();
+        if (Physics.Raycast(position + Vector3.up * 4f, Vector3.down, out var hit, 20f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            position.y = hit.point.y;
+            if (characterController != null)
+            {
+                position.y += characterController.height + 0.2f;
+            }
+        }
+
+        lookDirection.y = 0f;
+        lookDirection.Normalize();
+
         if (characterController != null)
         {
             var wasEnabled = characterController.enabled;
             characterController.enabled = false;
-            actor.position = spawnPosition;
-            actor.rotation = Quaternion.LookRotation(facing, Vector3.up);
+            actor.position = position;
+            actor.rotation = Quaternion.LookRotation(lookDirection, Vector3.up);
             characterController.enabled = wasEnabled;
         }
         else
         {
-            if (actor.GetComponent<Camera>() != null)
-            {
-                spawnPosition += Vector3.up * 1.65f;
-            }
+            actor.position = position;
+            actor.rotation = Quaternion.LookRotation(lookDirection, Vector3.up);
+        }
 
-            actor.position = spawnPosition;
-            actor.rotation = Quaternion.LookRotation(facing, Vector3.up);
+        var movement = actor.GetComponent<SimpleFirstPersonController>();
+        if (movement != null)
+        {
+            movement.SnapToHeight(position.y);
         }
 
         var rigidbody = actor.GetComponent<Rigidbody>();
@@ -336,7 +502,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
     }
 
-    private Transform FindPrimaryActor()
+    private Transform FindPrimaryActor(bool allowCameraFallback = true)
     {
         GameObject taggedPlayer = null;
         try
@@ -377,7 +543,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             }
         }
 
-        return Camera.main != null ? Camera.main.transform : null;
+        return allowCameraFallback && Camera.main != null ? Camera.main.transform : null;
     }
 
     private Transform FindNamedTransform(string childName, string parentName)
@@ -583,6 +749,8 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         out Transform mushroomSpawnPoint,
         out Transform mushroomTargetPoint)
     {
+        RemoveAllColliders(existingPot.gameObject);
+
         var bounds = CalculateRendererBounds(existingPot.gameObject);
         var openingY = bounds.center.y + bounds.extents.y * 0.52f;
         var soupRadius = Mathf.Max(0.18f, Mathf.Min(bounds.extents.x, bounds.extents.z) * 0.62f);
