@@ -680,10 +680,22 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     {
         if (FindObjectOfType<HybridBciPlatformBridge>() != null)
         {
+            EnsureHybridBciGameplayInput();
             return;
         }
 
         new GameObject("HybridBciPlatformBridge").AddComponent<HybridBciPlatformBridge>();
+        EnsureHybridBciGameplayInput();
+    }
+
+    private void EnsureHybridBciGameplayInput()
+    {
+        if (FindObjectOfType<HybridBciGameplayInput>() != null)
+        {
+            return;
+        }
+
+        new GameObject("HybridBciGameplayInput").AddComponent<HybridBciGameplayInput>();
     }
 
     private void CreateGround()

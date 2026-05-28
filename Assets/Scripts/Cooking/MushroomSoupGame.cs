@@ -99,6 +99,8 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private float fishGripThreshold = 0.72f;
     [SerializeField] private float fishCatchHoldDuration = 4f;
     [SerializeField] private float fishEscapePressGap = 0.45f;
+    [SerializeField] private float attentionFireGainPerSecond = 0.42f;
+    [SerializeField] private float attentionFishGripGainPerSecond = 0.45f;
 
     private DishPhase dishPhase = DishPhase.MushroomSoup;
     private SoupStage soupStage = SoupStage.HeatingToQuarter;
@@ -136,6 +138,7 @@ public class MushroomSoupGame : MonoBehaviour
     private float seasoningAnimationTimer;
     private bool pendingFrySetup;
     private bool fishHasBeenFlipped;
+    private HybridBciGameplayInput gameplayInput;
 
     public void Initialize(
         ParticleSystem sceneFireEffect,
@@ -222,6 +225,7 @@ public class MushroomSoupGame : MonoBehaviour
         UpdateInteractionState();
         RefreshUI();
         UpdateFireVisuals();
+        ResolveGameplayInput();
     }
 
     private void Update()
@@ -243,6 +247,7 @@ public class MushroomSoupGame : MonoBehaviour
 
         UpdateInteractionState();
         HandlePhaseTransitions();
+        ResolveGameplayInput();
 
         if (playerNearRiver && dishPhase == DishPhase.FishCatch && IsFishCatchUnlocked())
         {
@@ -318,9 +323,17 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void ReadCookingInput()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && !MushroomPickupSystem.HasFocusedHarvestable)
+        var keyboardFirePressed = Input.GetKeyDown(KeyCode.Space) && !MushroomPickupSystem.HasFocusedHarvestable;
+        var platformFireActive = CanUsePlatformInput() && gameplayInput.IsAttentionActive && !MushroomPickupSystem.HasFocusedHarvestable;
+
+        if (keyboardFirePressed)
         {
             firePower = Mathf.Clamp(firePower + fireGainPerSpace, 0f, maxFirePower);
+        }
+
+        if (platformFireActive)
+        {
+            firePower = Mathf.Clamp(firePower + attentionFireGainPerSecond * Time.deltaTime, 0f, maxFirePower);
         }
 
         if (dishPhase == DishPhase.MushroomSoup)
@@ -337,7 +350,7 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void ReadSoupInput()
     {
-        if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow))
+        if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow) || ConsumePlatformVerticalGesture())
         {
             PlayMushroomAnimation();
             TryAddMushroom();
@@ -351,6 +364,13 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.RightArrow))
         {
+            rightStirQueued = true;
+            TryStir();
+        }
+
+        if (ConsumePlatformHorizontalGesture())
+        {
+            leftStirQueued = true;
             rightStirQueued = true;
             TryStir();
         }
@@ -381,18 +401,35 @@ public class MushroomSoupGame : MonoBehaviour
             seasoningDownQueued = true;
             TrySeasonFish();
         }
+
+        if (ConsumePlatformHorizontalGesture())
+        {
+            flipLeftQueued = true;
+            flipRightQueued = true;
+            TryFlipFish();
+        }
+
+        if (ConsumePlatformVerticalGesture())
+        {
+            seasoningUpQueued = true;
+            seasoningDownQueued = true;
+            TrySeasonFish();
+        }
     }
 
     private void ReadFishInput()
     {
-        if (!Input.GetKeyDown(KeyCode.Space) || fishCatchState == FishCatchState.Caught)
+        var keyboardCatchPressed = Input.GetKeyDown(KeyCode.Space);
+        var platformCatchPressed = CanUsePlatformInput() && gameplayInput.IsAttentionActive;
+
+        if ((!keyboardCatchPressed && !platformCatchPressed) || fishCatchState == FishCatchState.Caught)
         {
             return;
         }
 
         if (fishCatchState == FishCatchState.Escaped)
         {
-            fishStatusMessage = "重新准备，猛按空格键把鱼抓稳。";
+            fishStatusMessage = "重新准备，集中注意力或猛按空格把鱼抓稳。";
             fishStatusMessageTimer = 1.5f;
             fishCatchState = FishCatchState.NeedToCatch;
         }
@@ -402,10 +439,10 @@ public class MushroomSoupGame : MonoBehaviour
             fishCatchState = FishCatchState.Catching;
             fishGrip = 0.22f;
             fishHoldTimer = 0f;
-            fishStatusMessage = "抓到了，快速连续按空格键，别让它逃走。";
+            fishStatusMessage = "抓到了，保持专注或快速连按空格，别让它逃走。";
             fishStatusMessageTimer = 1.2f;
         }
-        else if (fishCatchState == FishCatchState.Catching)
+        else if (fishCatchState == FishCatchState.Catching && keyboardCatchPressed)
         {
             fishGrip = Mathf.Clamp01(fishGrip + fishGripGainPerPress);
         }
@@ -930,9 +967,13 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (fishCatchButtonText != null)
         {
-            fishCatchButtonText.text = fishCatchState == FishCatchState.Catching
-                ? "[ 空格 ] 持续猛按，把鱼抓紧"
-                : "[ 空格 ] 开始捉鱼";
+            fishCatchButtonText.text = CanUsePlatformInput()
+                ? (fishCatchState == FishCatchState.Catching
+                    ? "[ 专注 ] 保持注意力，稳稳抓住鱼"
+                    : "[ 专注 ] 集中注意力，开始捉鱼")
+                : (fishCatchState == FishCatchState.Catching
+                    ? "[ 空格 ] 持续猛按，把鱼抓紧"
+                    : "[ 空格 ] 开始捉鱼");
         }
 
         if (fishSliderLabelText != null)
@@ -948,24 +989,25 @@ public class MushroomSoupGame : MonoBehaviour
 
     private string GetPrompt()
     {
+        var usingPlatform = CanUsePlatformInput();
         if (dishPhase == DishPhase.MushroomSoup)
         {
             switch (soupStage)
             {
                 case SoupStage.HeatingToQuarter:
-                    return "快速按空格键升高火力，把蘑菇汤煮到 1/4 进度。";
+                    return usingPlatform ? "保持专注提升火力，把蘑菇汤煮到 1/4 进度。" : "快速按空格键升高火力，把蘑菇汤煮到 1/4 进度。";
                 case SoupStage.NeedMushroom:
-                    return "提示：现在需要加蘑菇，请按上键或下键把蘑菇丢进锅里。";
+                    return usingPlatform ? "提示：现在需要加蘑菇，请点头一次把蘑菇放进锅里。" : "提示：现在需要加蘑菇，请按上键或下键把蘑菇丢进锅里。";
                 case SoupStage.HeatingToHalf:
-                    return "蘑菇已经下锅，继续加热，把进度推到 2/4。";
+                    return usingPlatform ? "蘑菇已经下锅，继续保持专注，把进度推到 2/4。" : "蘑菇已经下锅，继续加热，把进度推到 2/4。";
                 case SoupStage.NeedFirstStir:
-                    return "提示：现在需要第一次搅拌，请左右键各按一次。";
+                    return usingPlatform ? "提示：现在需要第一次搅拌，请左右摇头一次完成搅拌。" : "提示：现在需要第一次搅拌，请左右键各按一次。";
                 case SoupStage.HeatingToThreeQuarters:
-                    return "第一次搅拌完成，继续加热，把进度推进到 3/4。";
+                    return usingPlatform ? "第一次搅拌完成，继续保持专注，把进度推进到 3/4。" : "第一次搅拌完成，继续加热，把进度推进到 3/4。";
                 case SoupStage.NeedSecondStir:
-                    return "提示：现在需要第二次搅拌，请左右键各按一次。";
+                    return usingPlatform ? "提示：现在需要第二次搅拌，请再左右摇头一次。" : "提示：现在需要第二次搅拌，请左右键各按一次。";
                 case SoupStage.HeatingToDone:
-                    return "最后收汁加热，马上就完成了。";
+                    return usingPlatform ? "最后保持专注收汁加热，马上就完成了。" : "最后收汁加热，马上就完成了。";
                 case SoupStage.Completed:
                     return "蘑菇汤制作完成。下一道菜是煎鱼，请先去河边捉鱼。";
             }
@@ -988,15 +1030,15 @@ public class MushroomSoupGame : MonoBehaviour
                 case FriedFishStage.ReturnToFire:
                     return "带着鱼回到火堆旁，就可以开始煎鱼。";
                 case FriedFishStage.HeatingToHalf:
-                    return "先按空格键控制火力，把煎鱼进度推进到 1/2。";
+                    return usingPlatform ? "先保持专注控制火力，把煎鱼进度推进到 1/2。" : "先按空格键控制火力，把煎鱼进度推进到 1/2。";
                 case FriedFishStage.NeedFlip:
-                    return "提示：鱼煎到一半了，请按左右键翻面。";
+                    return usingPlatform ? "提示：鱼煎到一半了，请左右摇头一次给它翻面。" : "提示：鱼煎到一半了，请按左右键翻面。";
                 case FriedFishStage.HeatingToThreeQuarters:
-                    return "翻面完成，继续按空格加火，把进度推进到 3/4。";
+                    return usingPlatform ? "翻面完成，继续保持专注加热，把进度推进到 3/4。" : "翻面完成，继续按空格加火，把进度推进到 3/4。";
                 case FriedFishStage.NeedSeasoning:
-                    return "提示：现在请按上键和下键加入调味料。";
+                    return usingPlatform ? "提示：现在请点头一次，为煎鱼加入调味。" : "提示：现在请按上键和下键加入调味料。";
                 case FriedFishStage.HeatingToDone:
-                    return "调味已经加入，继续加热把鱼煎熟。";
+                    return usingPlatform ? "调味已经加入，继续保持专注把鱼煎熟。" : "调味已经加入，继续加热把鱼煎熟。";
                 case FriedFishStage.Completed:
                     return "煎鱼完成，晚餐准备好了。";
             }
@@ -1030,12 +1072,13 @@ public class MushroomSoupGame : MonoBehaviour
 
     private string GetFriedFishStatusLine()
     {
+        var usingPlatform = CanUsePlatformInput();
         switch (friedFishStage)
         {
             case FriedFishStage.NeedFlip:
-                return "动作要求：左右键各按一次，完成翻面。";
+                return usingPlatform ? "动作要求：左右摇头一次，完成翻面。" : "动作要求：左右键各按一次，完成翻面。";
             case FriedFishStage.NeedSeasoning:
-                return "动作要求：上键和下键各按一次，加入调味料。";
+                return usingPlatform ? "动作要求：点头一次，加入调味料。" : "动作要求：上键和下键各按一次，加入调味料。";
             case FriedFishStage.Completed:
                 return "煎鱼已经出锅。";
             default:
@@ -1065,6 +1108,12 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         fishGrip = Mathf.Clamp01(fishGrip - fishGripDecayPerSecond * Time.deltaTime);
+
+        if (CanUsePlatformInput() && gameplayInput.IsAttentionActive)
+        {
+            fishGrip = Mathf.Clamp01(fishGrip + attentionFishGripGainPerSecond * Time.deltaTime);
+            fishLastPressTime = Time.time;
+        }
 
         if (fishGrip >= fishGripThreshold)
         {
@@ -1096,12 +1145,13 @@ public class MushroomSoupGame : MonoBehaviour
 
     private string GetFishPrompt()
     {
+        var usingPlatform = CanUsePlatformInput();
         switch (fishCatchState)
         {
             case FishCatchState.NeedToCatch:
-                return "煎鱼的第一步是去河边捉鱼。按空格开始，然后快速连续按 6 秒。";
+                return usingPlatform ? "煎鱼的第一步是去河边捉鱼。集中注意力开始，并持续保持专注。" : "煎鱼的第一步是去河边捉鱼。按空格开始，然后快速连续按 6 秒。";
             case FishCatchState.Catching:
-                return "按得越快，鱼抓得越紧。一旦慢下来，鱼就会挣脱。";
+                return usingPlatform ? "注意力越稳定，鱼抓得越紧。一旦走神，鱼就会挣脱。" : "按得越快，鱼抓得越紧。一旦慢下来，鱼就会挣脱。";
             case FishCatchState.Escaped:
                 return "鱼溜走了，准备好后可以再试一次。";
             case FishCatchState.Caught:
@@ -1120,7 +1170,9 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (fishCatchState == FishCatchState.Catching)
         {
-            return $"鱼还在挣扎，高速连按已坚持: {fishHoldTimer:0.0}/{fishCatchHoldDuration:0.0} 秒";
+            return CanUsePlatformInput()
+                ? $"鱼还在挣扎，稳定专注已坚持: {fishHoldTimer:0.0}/{fishCatchHoldDuration:0.0} 秒"
+                : $"鱼还在挣扎，高速连按已坚持: {fishHoldTimer:0.0}/{fishCatchHoldDuration:0.0} 秒";
         }
 
         if (fishCatchState == FishCatchState.Caught)
@@ -1134,6 +1186,35 @@ public class MushroomSoupGame : MonoBehaviour
     private bool IsFishCatchUnlocked()
     {
         return fishCatchState != FishCatchState.Locked;
+    }
+
+    private void ResolveGameplayInput()
+    {
+        if (gameplayInput != null)
+        {
+            return;
+        }
+
+        gameplayInput = HybridBciGameplayInput.Instance;
+        if (gameplayInput == null)
+        {
+            gameplayInput = FindObjectOfType<HybridBciGameplayInput>();
+        }
+    }
+
+    private bool CanUsePlatformInput()
+    {
+        return gameplayInput != null && gameplayInput.HasLiveConnection;
+    }
+
+    private bool ConsumePlatformHorizontalGesture()
+    {
+        return CanUsePlatformInput() && gameplayInput.ConsumeHorizontalGesture();
+    }
+
+    private bool ConsumePlatformVerticalGesture()
+    {
+        return CanUsePlatformInput() && gameplayInput.ConsumeVerticalGesture();
     }
 
     private void BeginFriedFish()

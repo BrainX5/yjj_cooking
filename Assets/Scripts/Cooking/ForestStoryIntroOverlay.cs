@@ -12,7 +12,7 @@ public class ForestStoryIntroOverlay : MonoBehaviour
         "\u518d\u5230\u6797\u95f4\u5c0f\u6eaa\u8fb9\u89c2\u5bdf\u5c0f\u9c7c\uff0c\u6700\u540e\u56de\u5230\u6797\u95f4\u5c0f\u53a8\u623f\u719f\u716e\u4e00\u9505\u9999\u55b7\u55b7\u7684\u8611\u83c7\u6c64\u3002\n\n" +
         "\u4e0d\u7740\u6025\uff0c\u6162\u6162\u6765\u3002\n" +
         "\u770b\u6e05\u695a\u3001\u8d70\u8fd1\u5b83\u3001\u5b8c\u6210\u4f60\u7684\u6bcf\u4e00\u6b65\u5c0f\u4efb\u52a1\u3002";
-    [SerializeField] private string footerText = "\u6309\u7a7a\u683c\u952e\u6216\u70b9\u51fb\u5377\u8f74\uff0c\u5f00\u59cb\u4f60\u7684\u68ee\u6797\u5c0f\u53a8\u623f\u5192\u9669";
+    [SerializeField] private string footerText = "\u70b9\u5934\u4e00\u6b21\uff0c\u6216\u6309\u7a7a\u683c\u952e\u3001\u70b9\u51fb\u5377\u8f74\uff0c\u5f00\u59cb\u4f60\u7684\u68ee\u6797\u5c0f\u53a8\u623f\u5192\u9669";
 
     private Canvas overlayCanvas;
     private Font uiFont;
@@ -30,6 +30,15 @@ public class ForestStoryIntroOverlay : MonoBehaviour
     {
         if (!isVisible)
         {
+            return;
+        }
+
+        var gameplayInput = HybridBciGameplayInput.Instance;
+        if (gameplayInput != null &&
+            gameplayInput.HasLiveConnection &&
+            gameplayInput.ConsumeVerticalGesture())
+        {
+            Hide();
             return;
         }
 
