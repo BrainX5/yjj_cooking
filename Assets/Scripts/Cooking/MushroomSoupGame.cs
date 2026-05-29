@@ -321,6 +321,7 @@ public class MushroomSoupGame : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space) && !MushroomPickupSystem.HasFocusedHarvestable)
         {
             firePower = Mathf.Clamp(firePower + fireGainPerSpace, 0f, maxFirePower);
+            CookingAudioController.Instance?.PlayFireTap();
         }
 
         if (dishPhase == DishPhase.MushroomSoup)
@@ -410,6 +411,7 @@ public class MushroomSoupGame : MonoBehaviour
             fishGrip = Mathf.Clamp01(fishGrip + fishGripGainPerPress);
         }
 
+        CookingAudioController.Instance?.PlayFishPress();
         fishLastPressTime = Time.time;
     }
 
@@ -487,6 +489,7 @@ public class MushroomSoupGame : MonoBehaviour
             dishPhase = DishPhase.FishCatch;
             fishCatchState = FishCatchState.NeedToCatch;
             TintSoup(new Color(0.84f, 0.77f, 0.56f, 1f));
+            CookingAudioController.Instance?.PlayDishComplete();
         }
     }
 
@@ -525,6 +528,7 @@ public class MushroomSoupGame : MonoBehaviour
             fishStatusMessage = "煎鱼完成了，今天的晚餐都准备好了。";
             fishStatusMessageTimer = 4f;
             UpdateFriedFishAppearance();
+            CookingAudioController.Instance?.PlayDishComplete();
         }
     }
 
@@ -536,6 +540,7 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         mushroomsAdded++;
+        CookingAudioController.Instance?.PlayMushroomDrop();
         TintSoup(new Color(0.69f, 0.62f, 0.37f, 1f));
 
         if (mushroomsAdded >= mushroomsNeeded)
@@ -555,6 +560,7 @@ public class MushroomSoupGame : MonoBehaviour
         rightStirQueued = false;
 
         PlayStirAnimation();
+        CookingAudioController.Instance?.PlayStir();
 
         if (soupStage == SoupStage.NeedFirstStir)
         {
@@ -583,6 +589,7 @@ public class MushroomSoupGame : MonoBehaviour
         flipRightQueued = false;
         fishHasBeenFlipped = true;
         PlayFishFlipAnimation();
+        CookingAudioController.Instance?.PlayFishFlip();
         friedFishStage = FriedFishStage.HeatingToThreeQuarters;
     }
 
@@ -596,6 +603,7 @@ public class MushroomSoupGame : MonoBehaviour
         seasoningUpQueued = false;
         seasoningDownQueued = false;
         PlaySeasoningAnimation();
+        CookingAudioController.Instance?.PlaySeasoning();
         friedFishStage = FriedFishStage.HeatingToDone;
     }
 
@@ -791,6 +799,9 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void UpdateFireVisuals()
     {
+        CookingAudioController.Instance?.UpdateFireLoop(playerInCookingRange ? firePower : 0f);
+        CookingAudioController.Instance?.UpdateRiverLoop(playerNearRiver ? 1f : 0f);
+
         if (fireEffect != null)
         {
             var emission = fireEffect.emission;
@@ -1081,6 +1092,7 @@ public class MushroomSoupGame : MonoBehaviour
             fishGrip = 1f;
             fishStatusMessage = "恭喜你捉到一只鱼，带回火堆边开始做煎鱼吧。";
             fishStatusMessageTimer = 4f;
+            CookingAudioController.Instance?.PlayFishCaught();
             return;
         }
 
@@ -1091,6 +1103,7 @@ public class MushroomSoupGame : MonoBehaviour
             fishHoldTimer = 0f;
             fishStatusMessage = "你按得太慢了，鱼逃走了！";
             fishStatusMessageTimer = 2.4f;
+            CookingAudioController.Instance?.PlayFishEscape();
         }
     }
 
@@ -1156,6 +1169,7 @@ public class MushroomSoupGame : MonoBehaviour
         SetActivePot(fryPotVisual != null ? fryPotVisual : soupPotVisual);
         CacheVisualState();
         UpdateFriedFishAppearance();
+        CookingAudioController.Instance?.PlayUiClose();
     }
 
     private void SetActivePot(Transform targetPot)

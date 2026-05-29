@@ -57,6 +57,7 @@ public class HarvestableMushroom : MonoBehaviour
 
         picked = true;
         SetSelected(false);
+        CookingAudioController.Instance?.PlayPickup();
 
         if (cachedColliders == null || cachedColliders.Length == 0)
         {
