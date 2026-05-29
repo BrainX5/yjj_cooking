@@ -16,10 +16,12 @@ public class MushroomPickupSystem : MonoBehaviour
     [Header("Interaction")]
     [SerializeField] private float highlightDistance = 4.5f;
     [SerializeField] private float pickupDistance = 3.6f;
+    [SerializeField] private float attentionPickupHoldDuration = 0.8f;
 
     [Header("UI")]
     [SerializeField] private string titleLabel = "\u8611\u83c7\u91c7\u96c6";
     [SerializeField] private string pickupPrompt = "\u63d0\u793a\uff1a\u73b0\u5728\u53ef\u4ee5\u91c7\u8611\u83c7\uff0c\u8bf7\u6309\u7a7a\u683c\u952e\u62fe\u53d6\u3002";
+    [SerializeField] private string platformPickupPrompt = "\u63d0\u793a\uff1a\u9760\u8fd1\u540e\u4fdd\u6301\u4e13\u6ce8\uff0c\u6216\u8005\u6309\u7a7a\u683c\u952e\u62fe\u53d6\u8611\u83c7\u3002";
     [SerializeField] private int titleFontSize = 38;
     [SerializeField] private int promptFontSize = 38;
     [SerializeField] private Color promptColor = new Color(1f, 0.35f, 0.2f, 1f);
@@ -32,6 +34,7 @@ public class MushroomPickupSystem : MonoBehaviour
     private Text titleText;
     private Text promptText;
     private Font uiFont;
+    private float attentionPickupTimer;
 
     public void Configure(
         string houseName,
@@ -72,16 +75,22 @@ public class MushroomPickupSystem : MonoBehaviour
         UpdateNearestTarget();
         RefreshPrompt();
 
-        if (currentTarget != null && Input.GetKeyDown(KeyCode.Space))
+        if (currentTarget == null)
         {
-            currentTarget.TryPick();
-            SetCurrentTarget(null);
+            attentionPickupTimer = 0f;
+            return;
+        }
+
+        if (TryHandlePlatformPickup() || Input.GetKeyDown(KeyCode.Space))
+        {
+            PickCurrentTarget();
         }
     }
 
     private void OnDisable()
     {
         HasFocusedHarvestable = false;
+        attentionPickupTimer = 0f;
         SetCurrentTarget(null);
         RefreshPrompt();
     }
@@ -317,11 +326,43 @@ public class MushroomPickupSystem : MonoBehaviour
         }
 
         currentTarget = target;
+        attentionPickupTimer = 0f;
 
         if (currentTarget != null)
         {
             currentTarget.SetSelected(true);
         }
+    }
+
+    private bool TryHandlePlatformPickup()
+    {
+        var gameplayInput = HybridBciGameplayInput.Instance;
+        if (gameplayInput == null || !gameplayInput.HasLiveConnection)
+        {
+            attentionPickupTimer = 0f;
+            return false;
+        }
+
+        if (gameplayInput.IsAttentionActive)
+        {
+            attentionPickupTimer += Time.deltaTime;
+            return attentionPickupTimer >= attentionPickupHoldDuration;
+        }
+
+        attentionPickupTimer = 0f;
+        return false;
+    }
+
+    private void PickCurrentTarget()
+    {
+        if (currentTarget == null)
+        {
+            return;
+        }
+
+        currentTarget.TryPick();
+        attentionPickupTimer = 0f;
+        SetCurrentTarget(null);
     }
 
     private Transform FindHouseOrDoorAnchor()
@@ -479,7 +520,10 @@ public class MushroomPickupSystem : MonoBehaviour
         }
 
         titleText.text = titleLabel;
-        promptText.text = pickupPrompt;
+        var gameplayInput = HybridBciGameplayInput.Instance;
+        promptText.text = gameplayInput != null && gameplayInput.HasLiveConnection
+            ? platformPickupPrompt
+            : pickupPrompt;
     }
 
     private Text CreateText(
