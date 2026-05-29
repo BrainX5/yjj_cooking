@@ -88,6 +88,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             EnsureOpeningStoryOverlay();
         }
 
+        EnsureCookingAudioController();
         if (enableHybridBciPlatformBridge)
         {
             EnsureHybridBciPlatformBridge();
@@ -696,6 +697,18 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 
         new GameObject("HybridBciGameplayInput").AddComponent<HybridBciGameplayInput>();
+    }
+
+    private void EnsureCookingAudioController()
+    {
+        if (FindObjectOfType<CookingAudioController>() != null)
+        {
+            return;
+        }
+
+        var audioObject = new GameObject("CookingAudioController");
+        audioObject.AddComponent<AudioSource>();
+        audioObject.AddComponent<CookingAudioController>();
     }
 
     private void CreateGround()
