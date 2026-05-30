@@ -3,6 +3,12 @@ using UnityEngine.UI;
 
 public class ForestStoryIntroOverlay : MonoBehaviour
 {
+    [Header("Look")]
+    [SerializeField] private int overlaySortingOrder = 300;
+    [SerializeField] private Color dimmerColor = new Color(0.11f, 0.08f, 0.05f, 0.88f);
+    [SerializeField] private Color scrollBackplateColor = new Color(0.86f, 0.73f, 0.54f, 1f);
+    [SerializeField] private Color scrollColor = new Color(0.93f, 0.84f, 0.65f, 1f);
+
     [SerializeField] private string titleText = "\u68ee\u53a8\u5c0f\u5f53\u5bb6";
     [SerializeField] private string bodyText =
         "\u6b22\u8fce\u6765\u5230\u6668\u96fe\u68ee\u6797\u3002\n\n" +
@@ -73,7 +79,7 @@ public class ForestStoryIntroOverlay : MonoBehaviour
         canvasObject.transform.SetParent(transform, false);
         overlayCanvas = canvasObject.AddComponent<Canvas>();
         overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        overlayCanvas.sortingOrder = 120;
+        overlayCanvas.sortingOrder = overlaySortingOrder;
 
         var scaler = canvasObject.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -88,10 +94,20 @@ public class ForestStoryIntroOverlay : MonoBehaviour
             new Vector2(0.5f, 0.5f),
             new Vector2(0f, 0f),
             new Vector2(0f, 0f),
-            new Color(0.17f, 0.12f, 0.08f, 0.58f));
+            dimmerColor);
         dimmer.rectTransform.sizeDelta = Vector2.zero;
         dimmer.rectTransform.anchorMin = Vector2.zero;
         dimmer.rectTransform.anchorMax = Vector2.one;
+
+        var scrollBackplate = CreateImage(
+            canvasObject.transform,
+            "ScrollBackplate",
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0f, 0f),
+            new Vector2(1180f, 810f),
+            scrollBackplateColor);
+        AddShadow(scrollBackplate.gameObject, new Color(0.16f, 0.09f, 0.03f, 0.36f), new Vector2(18f, -20f));
 
         var scroll = CreateImage(
             canvasObject.transform,
@@ -100,7 +116,7 @@ public class ForestStoryIntroOverlay : MonoBehaviour
             new Vector2(0.5f, 0.5f),
             new Vector2(0f, 0f),
             new Vector2(1120f, 760f),
-            new Color(0.93f, 0.84f, 0.65f, 0.98f));
+            scrollColor);
         scroll.rectTransform.SetAsLastSibling();
 
         AddOutline(scroll.gameObject, new Color(0.33f, 0.2f, 0.09f, 0.9f), new Vector2(4f, -4f));
@@ -161,6 +177,12 @@ public class ForestStoryIntroOverlay : MonoBehaviour
             overlayCanvas.enabled = true;
         }
 
+        var platformBridge = HybridBciPlatformBridge.Instance;
+        if (platformBridge != null)
+        {
+            platformBridge.SendSetVisible(false);
+        }
+
         Time.timeScale = 0f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -173,6 +195,12 @@ public class ForestStoryIntroOverlay : MonoBehaviour
         if (overlayCanvas != null)
         {
             overlayCanvas.enabled = false;
+        }
+
+        var platformBridge = HybridBciPlatformBridge.Instance;
+        if (platformBridge != null)
+        {
+            platformBridge.SendSetVisible(true);
         }
 
         Time.timeScale = 1f;
