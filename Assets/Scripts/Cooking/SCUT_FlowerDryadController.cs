@@ -38,20 +38,20 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     }
 
     void Start()
+{
+    if (Camera.main != null) mainCameraTransform = Camera.main.transform;
+
+    SetImpVisibility(false);
+    flowerDryadObject?.SetActive(false);
+    windParticle?.Stop();
+    
+    // 【修改这里】：确保游戏开局时风声是静音关闭的
+    if (windAudio != null)
     {
-        if (Camera.main != null) mainCameraTransform = Camera.main.transform;
-
-        SetImpVisibility(false);
-        if (flowerDryadObject != null) flowerDryadObject.SetActive(false);
-        if (windParticle != null) windParticle.Stop();
-        
-        if (windAudio != null)
-        {
-            windAudio.Stop();
-            windAudio.loop = true; 
-        } 
-    }
-
+        windAudio.Stop(); // 确保开局停止
+        windAudio.loop = true; // 允许在吹风时循环播放
+    } 
+}
     void Update()
     {
         if (currentPhase == ImpPhase.Weightless)
@@ -73,56 +73,59 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     }
 
     IEnumerator ZeroGravityTimelineRoutine(GameObject specialMushroom)
+{
+    Debug.Log("【剧情控制】风精灵现身，开始飞向玩家镜头前方...");
+    SetImpVisibility(true);
+    if (impAnimator != null) impAnimator.SetTrigger("Attack");
+
+    // 1. 精灵移动至玩家主相机的前方固定距离
+    if (mainCameraTransform != null)
     {
-        Debug.Log("【剧情控制】风精灵现身，开始飞向玩家镜头前方...");
-        SetImpVisibility(true);
-        if (impAnimator != null) impAnimator.SetTrigger("Attack");
+        Vector3 targetPosition = mainCameraTransform.position + (mainCameraTransform.forward * stopDistanceToCamera);
+        targetPosition.y = mainCameraTransform.position.y - 0.5f;
 
-        // 1. 精灵移动至玩家主相机的前方固定距离（飞入视野）
-        if (mainCameraTransform != null)
+        while (Vector3.Distance(transform.position, targetPosition) > 0.2f)
         {
-            Vector3 targetPosition = mainCameraTransform.position + (mainCameraTransform.forward * stopDistanceToCamera);
-            targetPosition.y = mainCameraTransform.position.y - 0.5f; // 稍微向下微调，防止正中心挡死屏幕
+            Vector3 lookPos = mainCameraTransform.position - transform.position;
+            lookPos.y = 0;
+            if (lookPos != Vector3.zero) transform.rotation = Quaternion.LookRotation(lookPos);
 
-            while (Vector3.Distance(transform.position, targetPosition) > 0.2f)
-            {
-                Vector3 lookPos = mainCameraTransform.position - transform.position;
-                lookPos.y = 0;
-                if (lookPos != Vector3.zero) transform.rotation = Quaternion.LookRotation(lookPos);
-
-                transform.position = Vector3.MoveTowards(transform.position, targetPosition, flySpeed * Time.deltaTime);
-                yield return null;
-            }
-            transform.position = targetPosition;
+            transform.position = Vector3.MoveTowards(transform.position, targetPosition, flySpeed * Time.deltaTime);
+            yield return null;
         }
-
-        // 2. 精灵到位，立刻开启吹风特效，播放风声音乐
-        Debug.Log("【剧情控制】风精灵已就位！开始吹风并播放风声音效。");
-        if (windParticle != null) windParticle.Play();
-        if (windAudio != null) windAudio.Play();
-
-        // 3. 让风在玩家眼前吹上 2 秒钟（作为失重前的氛围铺垫）
-        yield return new WaitForSeconds(windBlowDuration);
-
-        // 4. 风力彻底生效，让特殊蘑菇瞬间起飞！
-        Debug.Log("【剧情控制】吹风完成！命令特殊蘑菇起飞飞入视野！");
-        currentPhase = ImpPhase.Weightless;
-
-        if (specialMushroom != null)
-        {
-            // 通过 SendMessage 远程跨语言通信调用你 WeightlessFloat 脚本里写好的公开函数 "StartFloating"
-            // 这种写法极为安全，不会引起任何编译器找不到类型的错误报错
-            specialMushroom.SendMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
-        }
-
-        // 5. 如果你在 Inspector 里面分配了其他需要一同跟着飞的普通蘑菇组（floatingObjects）
-        if (floatingObjects != null)
-        {
-            floatingObjects.SetActive(true);
-            // 广播呼叫该父物体下面所有带有漂浮功能的子蘑菇一并起飞
-            floatingObjects.BroadcastMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
-        }
+        transform.position = targetPosition;
     }
+
+    // 2. 精灵到位，立刻开启吹风特效，播放风声音乐
+    Debug.Log("【剧情控制】风精灵已就位！开始吹风并播放风声音效。");
+    if (windParticle != null) windParticle.Play();
+    if (windAudio != null) windAudio.Play();
+
+    // 3. 让风在玩家眼前吹上 2 秒钟（作为失重前的蓄力演出）
+    yield return new WaitForSeconds(windBlowDuration);
+
+    // =================【核心修改点：在这里关闭风声】=================
+    Debug.Log("【剧情控制】蓄力吹风完成！蘑菇起飞，立刻关闭风声和风粒子！");
+    
+    if (windAudio != null) windAudio.Stop();      // 📢 在这里让风声立刻停止！
+    if (windParticle != null) windParticle.Stop();  // 📢 让风粒子同步停止（或者你可以让它继续飘）
+    
+    currentPhase = ImpPhase.Weightless;
+    // =============================================================
+
+    // 4. 风力生效，通知特殊蘑菇起飞
+    if (specialMushroom != null)
+    {
+        specialMushroom.SendMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
+    }
+
+    // 5. 如果有其他普通蘑菇组，一并通知起飞
+    if (floatingObjects != null)
+    {
+        floatingObjects.SetActive(true);
+        floatingObjects.BroadcastMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
+    }
+}
 
     void HandleFocusTraining()
     {
