@@ -18,9 +18,9 @@ public class HybridBciGameplayInput : MonoBehaviour
     [SerializeField] private bool invertPitch;
 
     [Header("Gyroscope Gestures")]
-    [SerializeField] private float gesturePeakThreshold = 12f;
-    [SerializeField] private float gestureCenterThreshold = 4.5f;
-    [SerializeField] private float gestureSequenceWindow = 0.8f;
+    [SerializeField] private float gesturePeakThreshold = 8f;
+    [SerializeField] private float gestureCenterThreshold = 3.5f;
+    [SerializeField] private float gestureSequenceWindow = 1.1f;
     [SerializeField] private float gestureCooldown = 0.6f;
 
     public static HybridBciGameplayInput Instance { get; private set; }
@@ -231,7 +231,11 @@ public class HybridBciGameplayInput : MonoBehaviour
             pendingHorizontalGestures++;
         }
 
-        if (UpdateGestureAxis(gyro.gyroscopeY, verticalGesture))
+        var verticalAxisValue = Mathf.Abs(gyro.gyroscopeZ) > Mathf.Abs(gyro.gyroscopeY)
+            ? gyro.gyroscopeZ
+            : gyro.gyroscopeY;
+
+        if (UpdateGestureAxis(verticalAxisValue, verticalGesture))
         {
             pendingVerticalGestures++;
         }

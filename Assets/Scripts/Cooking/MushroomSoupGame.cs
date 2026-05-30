@@ -86,7 +86,7 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private float fireDecayPerSecond = 0.9f;
     [SerializeField] private float fireGainPerSpace = 0.18f;
     [SerializeField] private float maxFirePower = 1f;
-    [SerializeField] private float maxCookRatePerSecond = 0.22f;
+    [SerializeField] private float maxCookRatePerSecond = 0.1f;
     [SerializeField] private int mushroomsNeeded = 1;
     [SerializeField] private float baseFireRate = 4f;
     [SerializeField] private float fireRateRange = 18f;
@@ -99,7 +99,7 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private float fishGripThreshold = 0.72f;
     [SerializeField] private float fishCatchHoldDuration = 4f;
     [SerializeField] private float fishEscapePressGap = 0.45f;
-    [SerializeField] private float attentionFireGainPerSecond = 1.15f;
+    [SerializeField] private float attentionFireGainPerSecond = 0.55f;
     [SerializeField] private float attentionFishGripGainPerSecond = 0.45f;
 
     private DishPhase dishPhase = DishPhase.MushroomSoup;
