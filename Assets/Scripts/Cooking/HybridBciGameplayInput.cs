@@ -8,6 +8,15 @@ public class HybridBciGameplayInput : MonoBehaviour
     [SerializeField] private int attentionDeactivateThreshold = 55;
     [SerializeField] private float attentionSmoothingTime = 0.4f;
 
+    [Header("Head Look")]
+    [SerializeField] private float lookDeadZone = 5f;
+    [SerializeField] private float lookFullScaleSignal = 20f;
+    [SerializeField] private float lookSmoothingTime = 0.16f;
+    [SerializeField] private float lookNeutralFollowThreshold = 3f;
+    [SerializeField] private float lookNeutralFollowSpeed = 8f;
+    [SerializeField] private bool invertYaw = true;
+    [SerializeField] private bool invertPitch;
+
     [Header("Gyroscope Gestures")]
     [SerializeField] private float gesturePeakThreshold = 12f;
     [SerializeField] private float gestureCenterThreshold = 4.5f;
@@ -19,11 +28,21 @@ public class HybridBciGameplayInput : MonoBehaviour
     public bool HasLiveConnection => bridge != null && bridge.IsConnected;
     public bool IsAttentionActive => HasLiveConnection && attentionActive;
     public float SmoothedAttention => smoothedAttention;
+    public float LookYawInput => HasLiveConnection ? smoothedLookYaw : 0f;
+    public float LookPitchInput => HasLiveConnection ? smoothedLookPitch : 0f;
 
     private HybridBciPlatformBridge bridge;
     private float smoothedAttention;
     private float attentionVelocity;
     private bool attentionActive;
+    private float smoothedLookYaw;
+    private float smoothedLookPitch;
+    private float lookYawVelocity;
+    private float lookPitchVelocity;
+    private float lookYawBaseline;
+    private float lookPitchBaseline;
+    private bool lookBaselineInitialized;
+    private bool wasHeadLookConnectedLastFrame;
     private int pendingHorizontalGestures;
     private int pendingVerticalGestures;
     private readonly GestureTracker horizontalGesture = new GestureTracker();
@@ -45,6 +64,7 @@ public class HybridBciGameplayInput : MonoBehaviour
     {
         ResolveBridge();
         UpdateAttentionState();
+        UpdateHeadLookState();
         UpdateGestureState();
     }
 
@@ -116,6 +136,84 @@ public class HybridBciGameplayInput : MonoBehaviour
         }
     }
 
+    private void UpdateHeadLookState()
+    {
+        var targetYaw = 0f;
+        var targetPitch = 0f;
+
+        if (HasLiveConnection)
+        {
+            var gyro = bridge.LastGyroscope;
+            if (!wasHeadLookConnectedLastFrame || !lookBaselineInitialized)
+            {
+                CaptureLookBaseline(gyro);
+            }
+
+            UpdateLookBaseline(ref lookYawBaseline, gyro.gyroscopeX);
+            UpdateLookBaseline(ref lookPitchBaseline, gyro.gyroscopeY);
+
+            targetYaw = NormalizeLookAxis(gyro.gyroscopeX - lookYawBaseline);
+            targetPitch = NormalizeLookAxis(gyro.gyroscopeY - lookPitchBaseline);
+
+            if (invertYaw)
+            {
+                targetYaw *= -1f;
+            }
+
+            if (invertPitch)
+            {
+                targetPitch *= -1f;
+            }
+        }
+        else
+        {
+            wasHeadLookConnectedLastFrame = false;
+            lookBaselineInitialized = false;
+        }
+
+        smoothedLookYaw = Mathf.SmoothDamp(
+            smoothedLookYaw,
+            targetYaw,
+            ref lookYawVelocity,
+            lookSmoothingTime,
+            Mathf.Infinity,
+            Time.unscaledDeltaTime);
+
+        smoothedLookPitch = Mathf.SmoothDamp(
+            smoothedLookPitch,
+            targetPitch,
+            ref lookPitchVelocity,
+            lookSmoothingTime,
+            Mathf.Infinity,
+            Time.unscaledDeltaTime);
+    }
+
+    private void CaptureLookBaseline(HybridBciPlatformBridge.GyroscopeState gyro)
+    {
+        lookYawBaseline = gyro.gyroscopeX;
+        lookPitchBaseline = gyro.gyroscopeY;
+        lookBaselineInitialized = true;
+        wasHeadLookConnectedLastFrame = true;
+        smoothedLookYaw = 0f;
+        smoothedLookPitch = 0f;
+        lookYawVelocity = 0f;
+        lookPitchVelocity = 0f;
+    }
+
+    private void UpdateLookBaseline(ref float baseline, float rawValue)
+    {
+        var offsetFromBaseline = rawValue - baseline;
+        if (Mathf.Abs(offsetFromBaseline) > lookNeutralFollowThreshold)
+        {
+            return;
+        }
+
+        baseline = Mathf.MoveTowards(
+            baseline,
+            rawValue,
+            lookNeutralFollowSpeed * Time.unscaledDeltaTime);
+    }
+
     private void UpdateGestureState()
     {
         if (!HasLiveConnection)
@@ -183,6 +281,19 @@ public class HybridBciGameplayInput : MonoBehaviour
         }
 
         return false;
+    }
+
+    private float NormalizeLookAxis(float axisValue)
+    {
+        var magnitude = Mathf.Abs(axisValue);
+        if (magnitude <= lookDeadZone)
+        {
+            return 0f;
+        }
+
+        var safeFullScale = Mathf.Max(lookDeadZone + 0.01f, lookFullScaleSignal);
+        var normalized = Mathf.InverseLerp(lookDeadZone, safeFullScale, magnitude);
+        return Mathf.Sign(axisValue) * normalized;
     }
 
     private sealed class GestureTracker

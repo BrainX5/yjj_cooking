@@ -99,7 +99,7 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private float fishGripThreshold = 0.72f;
     [SerializeField] private float fishCatchHoldDuration = 4f;
     [SerializeField] private float fishEscapePressGap = 0.45f;
-    [SerializeField] private float attentionFireGainPerSecond = 0.42f;
+    [SerializeField] private float attentionFireGainPerSecond = 1.15f;
     [SerializeField] private float attentionFishGripGainPerSecond = 0.45f;
 
     private DishPhase dishPhase = DishPhase.MushroomSoup;
@@ -460,6 +460,14 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         if (dishPhase != DishPhase.MushroomSoup && dishPhase != DishPhase.FriedFish)
+        {
+            return;
+        }
+
+        if (CanUsePlatformInput() &&
+            gameplayInput != null &&
+            gameplayInput.IsAttentionActive &&
+            !MushroomPickupSystem.HasFocusedHarvestable)
         {
             return;
         }

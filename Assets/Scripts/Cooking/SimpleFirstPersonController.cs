@@ -17,11 +17,16 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private float minPitch = -75f;
     [SerializeField] private float maxPitch = 80f;
     [SerializeField] private bool lockCursorOnStart = true;
+    [SerializeField] private bool allowHybridBciHeadLook = true;
+    [SerializeField] private bool allowHybridBciPitchLook = false;
+    [SerializeField] private float hybridBciYawSpeed = 110f;
+    [SerializeField] private float hybridBciPitchSpeed = 55f;
 
     private CharacterController characterController;
     private float verticalVelocity;
     private float pitch;
     private float fixedHeight;
+    private HybridBciGameplayInput gameplayInput;
 
     private void Awake()
     {
@@ -60,6 +65,8 @@ public class SimpleFirstPersonController : MonoBehaviour
             return;
         }
 
+        ResolveGameplayInput();
+
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             LockCursor(false);
@@ -89,17 +96,33 @@ public class SimpleFirstPersonController : MonoBehaviour
 
     private void UpdateLook()
     {
-        if (playerCamera == null || Cursor.lockState != CursorLockMode.Locked)
+        if (playerCamera == null)
         {
             return;
         }
 
-        var mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-        var mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        var mouseX = 0f;
+        var mouseY = 0f;
+        if (Cursor.lockState == CursorLockMode.Locked)
+        {
+            mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+            mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        }
 
-        transform.Rotate(0f, mouseX, 0f);
+        var hybridYaw = 0f;
+        var hybridPitch = 0f;
+        if (allowHybridBciHeadLook && gameplayInput != null && gameplayInput.HasLiveConnection)
+        {
+            hybridYaw = gameplayInput.LookYawInput * hybridBciYawSpeed * Time.deltaTime;
+            if (allowHybridBciPitchLook)
+            {
+                hybridPitch = gameplayInput.LookPitchInput * hybridBciPitchSpeed * Time.deltaTime;
+            }
+        }
 
-        pitch = Mathf.Clamp(pitch - mouseY, minPitch, maxPitch);
+        transform.Rotate(0f, mouseX + hybridYaw, 0f);
+
+        pitch = Mathf.Clamp(pitch - mouseY - hybridPitch, minPitch, maxPitch);
         playerCamera.transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 
@@ -174,5 +197,19 @@ public class SimpleFirstPersonController : MonoBehaviour
     {
         Cursor.lockState = shouldLock ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !shouldLock;
+    }
+
+    private void ResolveGameplayInput()
+    {
+        if (gameplayInput != null)
+        {
+            return;
+        }
+
+        gameplayInput = HybridBciGameplayInput.Instance;
+        if (gameplayInput == null)
+        {
+            gameplayInput = FindObjectOfType<HybridBciGameplayInput>();
+        }
     }
 }
