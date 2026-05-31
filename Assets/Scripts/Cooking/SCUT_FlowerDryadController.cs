@@ -19,12 +19,12 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     public float stopDistanceToCamera = 3f;
     public float flySpeed = 15f;
 
-    public GameObject floatingObjects; // 场景里其他普通蘑菇组的父物体（可以没有）
+    public GameObject floatingObjects; 
     public GameObject flowerDryadObject;
     public AudioSource windAudio;
 
     [Header("失重演出等待时间")]
-    public float windBlowDuration = 2.0f; // 精灵停在相机前开始吹风后，等待多少秒蘑菇才起飞
+    public float windBlowDuration = 2.0f; 
 
     private float focusTimer = 0f;
     private Animator impAnimator;
@@ -38,104 +38,115 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     }
 
     void Start()
-{
-    if (Camera.main != null) mainCameraTransform = Camera.main.transform;
-
-    SetImpVisibility(false);
-    flowerDryadObject?.SetActive(false);
-    windParticle?.Stop();
-    
-    // 【修改这里】：确保游戏开局时风声是静音关闭的
-    if (windAudio != null)
     {
-        windAudio.Stop(); // 确保开局停止
-        windAudio.loop = true; // 允许在吹风时循环播放
-    } 
-}
+        mainCameraTransform = Camera.main.transform;
+        SetImpVisibility(false);
+        if (windParticle != null) windParticle.Stop();
+        if (windAudio != null) windAudio.Stop();
+    }
+
     void Update()
     {
-        if (currentPhase == ImpPhase.Weightless)
+        switch (currentPhase)
         {
-            HandleFocusTraining();
+            case ImpPhase.Appears:
+                HandleImpAppearance();
+                break;
+            case ImpPhase.Weightless:
+                HandleFocusTraining();
+                break;
         }
     }
 
-    // 由采蘑菇脚本在玩家按下空格时调用
+    void SetImpVisibility(bool isVisible)
+    {
+        if (flowerDryadObject != null)
+        {
+            flowerDryadObject.SetActive(isVisible);
+        }
+        else
+        {
+            foreach (Renderer r in impRenderers)
+            {
+                if (r != null) r.enabled = isVisible;
+            }
+        }
+    }
+
     public void TriggerSpecialMushroomEvent(GameObject specialMushroom)
     {
-        if (currentPhase != ImpPhase.Waiting) return; 
-        
-        currentPhase = ImpPhase.Appears;
-        if (flowerDryadObject != null) flowerDryadObject.SetActive(true);
+        if (currentPhase != ImpPhase.Waiting) return;
 
-        // 启动全新的失重动画剧情时间线
-        StartCoroutine(ZeroGravityTimelineRoutine(specialMushroom));
-    }
+        Debug.Log("【风精灵核心事件激活】开始执行连招动作...");
+        SetImpVisibility(true);
 
-    IEnumerator ZeroGravityTimelineRoutine(GameObject specialMushroom)
-{
-    Debug.Log("【剧情控制】风精灵现身，开始飞向玩家镜头前方...");
-    SetImpVisibility(true);
-    if (impAnimator != null) impAnimator.SetTrigger("Attack");
-
-    // 1. 精灵移动至玩家主相机的前方固定距离
-    if (mainCameraTransform != null)
-    {
-        Vector3 targetPosition = mainCameraTransform.position + (mainCameraTransform.forward * stopDistanceToCamera);
-        targetPosition.y = mainCameraTransform.position.y - 0.5f;
-
-        while (Vector3.Distance(transform.position, targetPosition) > 0.2f)
+        if (specialMushroom != null)
         {
-            Vector3 lookPos = mainCameraTransform.position - transform.position;
-            lookPos.y = 0;
-            if (lookPos != Vector3.zero) transform.rotation = Quaternion.LookRotation(lookPos);
-
-            transform.position = Vector3.MoveTowards(transform.position, targetPosition, flySpeed * Time.deltaTime);
-            yield return null;
+            transform.position = specialMushroom.transform.position + Vector3.up * 5f;
         }
-        transform.position = targetPosition;
+
+        currentPhase = ImpPhase.Appears;
+        if (impAnimator != null) impAnimator.SetTrigger("Fly");
     }
 
-    // 2. 精灵到位，立刻开启吹风特效，播放风声音乐
-    Debug.Log("【剧情控制】风精灵已就位！开始吹风并播放风声音效。");
-    if (windParticle != null) windParticle.Play();
-    if (windAudio != null) windAudio.Play();
-
-    // 3. 让风在玩家眼前吹上 2 秒钟（作为失重前的蓄力演出）
-    yield return new WaitForSeconds(windBlowDuration);
-
-    // =================【核心修改点：在这里关闭风声】=================
-    Debug.Log("【剧情控制】蓄力吹风完成！蘑菇起飞，立刻关闭风声和风粒子！");
-    
-    if (windAudio != null) windAudio.Stop();      // 📢 在这里让风声立刻停止！
-    if (windParticle != null) windParticle.Stop();  // 📢 让风粒子同步停止（或者你可以让它继续飘）
-    
-    currentPhase = ImpPhase.Weightless;
-    // =============================================================
-
-    // 4. 风力生效，通知特殊蘑菇起飞
-    if (specialMushroom != null)
+    void HandleImpAppearance()
     {
-        specialMushroom.SendMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
+        if (mainCameraTransform == null) return;
+
+        Vector3 targetStopPoint = mainCameraTransform.position + mainCameraTransform.forward * stopDistanceToCamera;
+
+        Vector3 lookPos = mainCameraTransform.position - transform.position;
+        lookPos.y = 0; 
+        if (lookPos != Vector3.zero) transform.rotation = Quaternion.LookRotation(lookPos);
+
+        transform.position = Vector3.MoveTowards(transform.position, targetStopPoint, flySpeed * Time.deltaTime);
+
+        if (Vector3.Distance(transform.position, targetStopPoint) < 0.1f)
+        {
+            transform.position = targetStopPoint;
+            currentPhase = ImpPhase.Weightless;
+            focusTimer = 0f;
+
+            if (impAnimator != null) impAnimator.SetTrigger("Cast");
+            if (windParticle != null) windParticle.Play();
+            if (windAudio != null && !windAudio.isPlaying) windAudio.Play();
+
+            StartCoroutine(BlowWindAndLiftMoshrooms());
+        }
     }
 
-    // 5. 如果有其他普通蘑菇组，一并通知起飞
-    if (floatingObjects != null)
+    IEnumerator BlowWindAndLiftMoshrooms()
     {
-        floatingObjects.SetActive(true);
-        floatingObjects.BroadcastMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
+        yield return new WaitForSeconds(windBlowDuration);
+
+        if (floatingObjects != null)
+        {
+            floatingObjects.SetActive(true);
+            
+            CameraFlightTracker tracker = Camera.main.gameObject.GetComponent<CameraFlightTracker>();
+            if (tracker == null) tracker = Camera.main.gameObject.AddComponent<CameraFlightTracker>();
+            
+            tracker.StartCameraTrack(this.transform); 
+
+            floatingObjects.BroadcastMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
+            
+            StartCoroutine(ActivateBCIGameplay());
+        }
     }
-}
+
+    IEnumerator ActivateBCIGameplay()
+    {
+        yield return new WaitForSeconds(2.0f); 
+        // 🔥【已修复】：这里已经完美更换为新的类名 SCUT_BCIFocusTrainingManager
+        SCUT_BCIFocusTrainingManager manager = FindObjectOfType<SCUT_BCIFocusTrainingManager>();
+        if (manager != null)
+        {
+            manager.StartFocusTrainingPhase(); 
+        }
+    }
 
     void HandleFocusTraining()
     {
-        if (mainCameraTransform != null)
-        {
-            Vector3 lookPos = mainCameraTransform.position - transform.position;
-            lookPos.y = 0;
-            if (lookPos != Vector3.zero) transform.rotation = Quaternion.LookRotation(lookPos);
-        }
-
         if (focusScore >= targetFocus)
         {
             focusTimer += Time.deltaTime;
@@ -160,13 +171,5 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
         yield return new WaitForSeconds(1.0f);
         currentPhase = ImpPhase.Waiting;
-    }
-
-    void SetImpVisibility(bool isVisible)
-    {
-        foreach (Renderer rend in impRenderers)
-        {
-            if (rend != null) rend.enabled = isVisible;
-        }
     }
 }
