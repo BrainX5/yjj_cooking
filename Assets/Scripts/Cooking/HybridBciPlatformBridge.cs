@@ -621,7 +621,18 @@ public class HybridBciPlatformBridge : MonoBehaviour
         if (LastGyroscope.HasValue)
         {
             builder.AppendLine(
+                $"Focus: X {LastGyroscope.focusX:0.0}  Y {LastGyroscope.focusY:0.0}");
+            builder.AppendLine(
                 $"Gyro: X {LastGyroscope.gyroscopeX:0.0}  Y {LastGyroscope.gyroscopeY:0.0}  Z {LastGyroscope.gyroscopeZ:0.0}");
+        }
+
+        var gameplayInput = HybridBciGameplayInput.Instance;
+        if (gameplayInput != null && gameplayInput.HasLiveConnection)
+        {
+            builder.AppendLine(
+                $"GestureY: Delta {gameplayInput.CurrentVerticalGestureDelta:0.0}  Neutral {gameplayInput.NeutralFocusY:0.0}");
+            builder.AppendLine(
+                $"GestureY Thresholds: Peak {gameplayInput.CurrentVerticalPeakThreshold:0.0}  Center {gameplayInput.CurrentVerticalCenterThreshold:0.0}");
         }
 
         if (BlinkTriggered && !blinkConsumed)
