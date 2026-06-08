@@ -20,6 +20,9 @@ public class MiniProgramGameDataManager : MonoBehaviour
 
     [Header("Upload")]
     [SerializeField] private bool autoUploadOnSessionComplete = true;
+    [SerializeField] private string childId = "child_001";
+    [SerializeField] private string wechatCloudEnvId = "cloud1-d9gz2tmfub107d0ff";
+    [SerializeField] private string targetCollectionName = "main_game_logs";
     [SerializeField] private string uploadEndpoint = string.Empty;
     [SerializeField] private string uploadBearerToken = string.Empty;
     [SerializeField] private float requestTimeoutSeconds = 15f;
@@ -30,7 +33,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
 
     public bool HasActiveSession => sessionActive;
     public string LastUploadStatus => lastUploadStatus;
-    public GameLogPayload LastCompletedPayload => lastCompletedPayload;
+    public UploadEnvelope LastCompletedPayload => lastCompletedPayload;
     public string LastPayloadJson => lastPayloadJson;
 
     private readonly List<int> focusSamples = new List<int>();
@@ -56,7 +59,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
     private int harvestedMushroomCount;
     private int fishCaughtCount;
     private int fishEscapedCount;
-    private GameLogPayload lastCompletedPayload;
+    private UploadEnvelope lastCompletedPayload;
 
     private void Awake()
     {
@@ -76,7 +79,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         SampleAttentionIfNeeded();
     }
 
-    public void ConfigureSessionDefaults(string gameModule, string recipeName)
+    public void ConfigureSessionDefaults(string gameModule, string recipeName, string configuredChildId = null)
     {
         if (!string.IsNullOrWhiteSpace(gameModule))
         {
@@ -86,6 +89,11 @@ public class MiniProgramGameDataManager : MonoBehaviour
         if (!string.IsNullOrWhiteSpace(recipeName))
         {
             defaultRecipeName = recipeName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(configuredChildId))
+        {
+            childId = configuredChildId.Trim();
         }
     }
 
@@ -181,7 +189,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         FinalizeDistractEventIfNeeded();
         sessionActive = false;
 
-        lastCompletedPayload = BuildPayload();
+        lastCompletedPayload = BuildUploadEnvelope();
         lastPayloadJson = JsonUtility.ToJson(lastCompletedPayload, prettyPrintPayload);
 
         if (!autoUploadOnSessionComplete || string.IsNullOrWhiteSpace(uploadEndpoint))
@@ -284,7 +292,17 @@ public class MiniProgramGameDataManager : MonoBehaviour
         distractEventCounted = false;
     }
 
-    private GameLogPayload BuildPayload()
+    private UploadEnvelope BuildUploadEnvelope()
+    {
+        return new UploadEnvelope
+        {
+            envId = wechatCloudEnvId,
+            collectionName = targetCollectionName,
+            payload = BuildGameLogPayload()
+        };
+    }
+
+    private GameLogPayload BuildGameLogPayload()
     {
         var meanFocus = ComputeAverageFocus();
         var peakFocus = ComputePeakFocus();
@@ -300,6 +318,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         var payload = new GameLogPayload
         {
             timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            childId = childId,
             durationMinutes = (float)Math.Round(Math.Max(0f, Time.unscaledTime - sessionStartTime) / 60f, 2),
             game_module = string.IsNullOrWhiteSpace(activeGameModule) ? defaultGameModule : activeGameModule,
             recipeName = string.IsNullOrWhiteSpace(activeRecipeName) ? defaultRecipeName : activeRecipeName,
@@ -527,7 +546,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         return Mathf.Clamp(Mathf.RoundToInt(value), 0, 100);
     }
 
-    private void UploadPayload(GameLogPayload payload)
+    private void UploadPayload(UploadEnvelope payload)
     {
         if (payload == null || string.IsNullOrWhiteSpace(uploadEndpoint))
         {
@@ -542,7 +561,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         uploadCoroutine = StartCoroutine(UploadRoutine(payload));
     }
 
-    private IEnumerator UploadRoutine(GameLogPayload payload)
+    private IEnumerator UploadRoutine(UploadEnvelope payload)
     {
         lastUploadStatus = "Uploading";
         lastPayloadJson = JsonUtility.ToJson(payload, prettyPrintPayload);
@@ -602,6 +621,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
     public class GameLogPayload
     {
         public long timestamp;
+        public string childId;
         public float durationMinutes;
         public string game_module;
         public string recipeName;
@@ -610,6 +630,14 @@ public class MiniProgramGameDataManager : MonoBehaviour
         public int distractCount;
         public EegMetrics eegMetrics;
         public DimensionMetrics dimensionMetrics;
+    }
+
+    [Serializable]
+    public class UploadEnvelope
+    {
+        public string envId;
+        public string collectionName;
+        public GameLogPayload payload;
     }
 
     [Serializable]

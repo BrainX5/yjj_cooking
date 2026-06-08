@@ -61,6 +61,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private bool enableMiniProgramDataManager = true;
     [SerializeField] private string gameModule = "room";
     [SerializeField] private string recipeName = "失重备菜室";
+    [SerializeField] private string childId = "child_001";
 
     private Font uiFont;
 
@@ -454,7 +455,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             manager = new GameObject("MiniProgramGameDataManager").AddComponent<MiniProgramGameDataManager>();
         }
 
-        manager.ConfigureSessionDefaults(gameModule, recipeName);
+        manager.ConfigureSessionDefaults(gameModule, recipeName, childId);
         if (!manager.HasActiveSession)
         {
             manager.BeginSession(gameModule, recipeName);
