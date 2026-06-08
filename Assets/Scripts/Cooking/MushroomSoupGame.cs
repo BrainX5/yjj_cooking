@@ -1,5 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class MushroomSoupGame : MonoBehaviour
 {
@@ -83,6 +86,22 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private Text inventoryTitleText;
     [SerializeField] private Text inventoryMushroomText;
     [SerializeField] private Text inventoryFishText;
+    [SerializeField] private Vector2 soupPromptPanelPosition = new Vector2(32f, -24f);
+    [SerializeField] private Vector2 soupPromptPanelSize = new Vector2(760f, 150f);
+    [SerializeField] private string soupPromptSpriteSheetPath = "Assets/ONDAD/Alert Panels/Graphics/UI_SpriteSheet.png";
+    [SerializeField] private string soupPromptSpriteName = "UI_SpriteSheet_6";
+    [SerializeField] private string soupPromptIconSpriteSheetPath = "Assets/ONDAD/Alert Panels/Graphics/UI_SpriteSheet.png";
+    [SerializeField] private string soupPromptIconSpriteName = "UI_SpriteSheet_17";
+    [SerializeField] private Color soupPromptFallbackColor = new Color(0.47f, 0.6f, 0.88f, 0.96f);
+    [SerializeField] private Color soupPromptTextColor = new Color(0.97f, 0.99f, 1f, 1f);
+    [SerializeField] private Vector2 soupCompletePanelPosition = new Vector2(-360f, -120f);
+    [SerializeField] private Vector2 soupCompletePanelSize = new Vector2(720f, 220f);
+    [SerializeField] private string soupCompleteSpriteSheetPath = "Assets/ONDAD/Alert Panels/Graphics/UI_SpriteSheet.png";
+    [SerializeField] private string soupCompleteSpriteName = "UI_SpriteSheet_2";
+    [SerializeField] private string soupCompleteIconSpriteSheetPath = "Assets/ONDAD/Alert Panels/Graphics/UI_SpriteSheet.png";
+    [SerializeField] private string soupCompleteIconSpriteName = "UI_SpriteSheet_1";
+    [SerializeField] private Color soupCompleteFallbackColor = new Color(0.88f, 0.28f, 0.23f, 0.98f);
+    [SerializeField] private Color soupCompleteTextColor = new Color(1f, 0.98f, 0.95f, 1f);
 
     [Header("Cooking Settings")]
     [SerializeField] private float interactionDistance = 4.5f;
@@ -131,6 +150,8 @@ public class MushroomSoupGame : MonoBehaviour
     private Quaternion fryFishBaseLocalRotation = Quaternion.identity;
     private Vector3 fryFishBaseLocalScale = Vector3.one;
     private Color fryFishBaseColor = new Color(0.78f, 0.86f, 0.96f, 1f);
+    private Vector2 cookingTitleDefaultPosition;
+    private Vector2 cookingTitleDefaultSize;
     private float stirAnimationTimer;
     private float mushroomAnimationTimer;
     private float fishGrip;
@@ -149,6 +170,18 @@ public class MushroomSoupGame : MonoBehaviour
     private bool fishHasBeenFlipped;
     private bool fishPlacedInPan;
     private HybridBciGameplayInput gameplayInput;
+    private Canvas soupPromptCanvas;
+    private Image soupPromptBackgroundImage;
+    private Text soupPromptOverlayText;
+    private Sprite soupPromptSprite;
+    private Sprite soupPromptIconSprite;
+    private Canvas soupCompleteCanvas;
+    private Text soupCompleteText;
+    private Sprite soupCompleteSprite;
+    private Sprite soupCompleteIconSprite;
+    private bool isShowingSoupCompletePrompt;
+    private bool pendingSoupCompleteTransition;
+    private float soupCompletePromptUnlockTime;
 
     public void Initialize(
         ParticleSystem sceneFireEffect,
@@ -287,6 +320,18 @@ public class MushroomSoupGame : MonoBehaviour
             return;
         }
 
+        if (isShowingSoupCompletePrompt)
+        {
+            if (Time.time >= soupCompletePromptUnlockTime &&
+                (Input.anyKeyDown || Input.GetMouseButtonDown(0)))
+            {
+                CloseSoupCompletePrompt();
+            }
+
+            RefreshSoupCompletePrompt();
+            return;
+        }
+
         UpdateInteractionState();
         HandlePhaseTransitions();
         ResolveGameplayInput();
@@ -306,6 +351,8 @@ public class MushroomSoupGame : MonoBehaviour
         UpdateAnimations();
         UpdateSoupSurface();
         UpdateFireVisuals();
+        RefreshSoupPromptOverlay();
+        UpdateMushroomGatherPrompt();
         RefreshUI();
     }
 
@@ -330,6 +377,13 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void CacheVisualState()
     {
+        if (titleText != null)
+        {
+            var titleRect = titleText.rectTransform;
+            cookingTitleDefaultPosition = titleRect.anchoredPosition;
+            cookingTitleDefaultSize = titleRect.sizeDelta;
+        }
+
         if (soupSurface != null)
         {
             soupBaseScale = soupSurface.localScale;
@@ -594,9 +648,9 @@ public class MushroomSoupGame : MonoBehaviour
         {
             cookProgress = 1f;
             soupStage = SoupStage.Completed;
-            dishPhase = DishPhase.FishCatch;
-            fishCatchState = FishCatchState.NeedToCatch;
             TintSoup(new Color(0.84f, 0.77f, 0.56f, 1f));
+            pendingSoupCompleteTransition = true;
+            ShowSoupCompletePrompt();
             CookingAudioController.Instance?.PlayDishComplete();
         }
     }
@@ -1040,6 +1094,9 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void RefreshCookingUI()
     {
+        EnsureSoupPromptOverlay();
+        RefreshCookingTitleLayout();
+
         if (titleText != null)
         {
             if (dishPhase == DishPhase.MushroomSoup)
@@ -1054,7 +1111,7 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (promptText != null)
         {
-            promptText.text = GetPrompt();
+            promptText.text = ShouldHideDefaultCookingPrompt() ? string.Empty : GetPrompt();
             promptText.color = NeedsAttention() ? new Color(1f, 0.35f, 0.2f, 1f) : Color.white;
         }
 
@@ -1160,9 +1217,7 @@ public class MushroomSoupGame : MonoBehaviour
                 case SoupStage.NeedMushroom:
                     if (mushroomsAdded < mushroomsNeeded)
                     {
-                        return harvestedMushroomCount < mushroomsNeeded
-                            ? "游戏开始先去采蘑菇，至少采三个，再回锅边按上下键把蘑菇放进锅里。"
-                            : "蘑菇已经够了，回锅边按上下键连续放蘑菇，至少放三个。";
+                        return string.Empty;
                     }
 
                     return usingPlatform ? "蘑菇已经放够了，继续保持专注，把蘑菇汤煮到下一阶段。" : "蘑菇已经放够了，按空格继续加热蘑菇汤。";
@@ -1222,6 +1277,392 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         return string.Empty;
+    }
+
+    private void UpdateMushroomGatherPrompt()
+    {
+        var pickupSystem = MushroomPickupSystem.Instance;
+        if (pickupSystem == null)
+        {
+            return;
+        }
+
+        var shouldShow = ShouldShowMushroomGatherDialog();
+        if (shouldShow)
+        {
+            pickupSystem.ShowGatherIntroPrompt(harvestedMushroomCount >= mushroomsNeeded);
+        }
+        else
+        {
+            pickupSystem.HideGatherIntroPrompt();
+        }
+    }
+
+    private bool ShouldShowMushroomGatherDialog()
+    {
+        return dishPhase == DishPhase.MushroomSoup &&
+               soupStage == SoupStage.NeedMushroom &&
+               mushroomsAdded < mushroomsNeeded;
+    }
+
+    private bool ShouldShowSoupPromptOverlay()
+    {
+        if (dishPhase != DishPhase.MushroomSoup)
+        {
+            return false;
+        }
+
+        if (ShouldShowMushroomGatherDialog())
+        {
+            return false;
+        }
+
+        return soupStage == SoupStage.NeedMushroom ||
+               soupStage == SoupStage.HeatingToQuarter ||
+               soupStage == SoupStage.HeatingToHalf ||
+               soupStage == SoupStage.NeedFirstStir ||
+               soupStage == SoupStage.HeatingToThreeQuarters ||
+               soupStage == SoupStage.NeedSecondStir ||
+               soupStage == SoupStage.HeatingToDone;
+    }
+
+    private bool ShouldHideDefaultCookingPrompt()
+    {
+        return ShouldShowMushroomGatherDialog() || ShouldShowSoupPromptOverlay();
+    }
+
+    private void EnsureSoupPromptOverlay()
+    {
+        if (soupPromptCanvas != null)
+        {
+            return;
+        }
+
+        var canvasObject = new GameObject("Soup Prompt UI");
+        soupPromptCanvas = canvasObject.AddComponent<Canvas>();
+        soupPromptCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        soupPromptCanvas.sortingOrder = 24;
+
+        var scaler = canvasObject.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+        canvasObject.AddComponent<GraphicRaycaster>();
+
+        var panelObject = new GameObject("SoupPromptPanel");
+        panelObject.transform.SetParent(canvasObject.transform, false);
+
+        var panelRect = panelObject.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0f, 1f);
+        panelRect.anchorMax = new Vector2(0f, 1f);
+        panelRect.pivot = new Vector2(0f, 1f);
+        panelRect.anchoredPosition = soupPromptPanelPosition;
+        panelRect.sizeDelta = soupPromptPanelSize;
+
+        soupPromptBackgroundImage = panelObject.AddComponent<Image>();
+        LoadSoupPromptSprite();
+        if (soupPromptSprite != null)
+        {
+            soupPromptBackgroundImage.sprite = soupPromptSprite;
+            soupPromptBackgroundImage.color = Color.white;
+        }
+        else
+        {
+            soupPromptBackgroundImage.color = soupPromptFallbackColor;
+        }
+
+        LoadSoupPromptIconSprite();
+        if (soupPromptIconSprite != null)
+        {
+            var iconObject = new GameObject("SoupPromptIcon");
+            iconObject.transform.SetParent(panelObject.transform, false);
+
+            var iconRect = iconObject.AddComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0f, 1f);
+            iconRect.anchorMax = new Vector2(0f, 1f);
+            iconRect.pivot = new Vector2(0f, 1f);
+            iconRect.anchoredPosition = new Vector2(14f, -10f);
+            iconRect.sizeDelta = new Vector2(88f, 88f);
+
+            var iconImage = iconObject.AddComponent<Image>();
+            iconImage.sprite = soupPromptIconSprite;
+            iconImage.color = Color.white;
+            iconImage.preserveAspect = true;
+        }
+
+        var textObject = new GameObject("SoupPromptText");
+        textObject.transform.SetParent(panelObject.transform, false);
+
+        var textRect = textObject.AddComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0f, 1f);
+        textRect.anchorMax = new Vector2(0f, 1f);
+        textRect.pivot = new Vector2(0f, 1f);
+        textRect.anchoredPosition = new Vector2(118f, -22f);
+        textRect.sizeDelta = new Vector2(soupPromptPanelSize.x - 236f, soupPromptPanelSize.y - 54f);
+
+        var outline = textObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.16f, 0.23f, 0.45f, 0.75f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        soupPromptOverlayText = textObject.AddComponent<Text>();
+        soupPromptOverlayText.font = titleText != null && titleText.font != null
+            ? titleText.font
+            : Resources.GetBuiltinResource<Font>("Arial.ttf");
+        soupPromptOverlayText.fontSize = 32;
+        soupPromptOverlayText.fontStyle = FontStyle.Bold;
+        soupPromptOverlayText.color = soupPromptTextColor;
+        soupPromptOverlayText.alignment = TextAnchor.MiddleCenter;
+        soupPromptOverlayText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        soupPromptOverlayText.verticalOverflow = VerticalWrapMode.Overflow;
+    }
+
+    private void RefreshSoupPromptOverlay()
+    {
+        if (soupPromptCanvas == null)
+        {
+            return;
+        }
+
+        var visible = !ForestStoryIntroOverlay.IsBlockingInput && ShouldShowSoupPromptOverlay();
+        soupPromptCanvas.enabled = visible;
+        if (!visible)
+        {
+            return;
+        }
+
+        if (soupPromptOverlayText != null)
+        {
+            soupPromptOverlayText.text = GetPrompt();
+        }
+    }
+
+    private void EnsureSoupCompletePrompt()
+    {
+        if (soupCompleteCanvas != null)
+        {
+            return;
+        }
+
+        var canvasObject = new GameObject("Soup Complete UI");
+        soupCompleteCanvas = canvasObject.AddComponent<Canvas>();
+        soupCompleteCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        soupCompleteCanvas.sortingOrder = 40;
+
+        var scaler = canvasObject.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+        canvasObject.AddComponent<GraphicRaycaster>();
+
+        var panelObject = new GameObject("SoupCompletePanel");
+        panelObject.transform.SetParent(canvasObject.transform, false);
+
+        var panelRect = panelObject.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0f, 0.5f);
+        panelRect.anchoredPosition = soupCompletePanelPosition;
+        panelRect.sizeDelta = soupCompletePanelSize;
+
+        var panelImage = panelObject.AddComponent<Image>();
+        LoadSoupCompleteSprite();
+        if (soupCompleteSprite != null)
+        {
+            panelImage.sprite = soupCompleteSprite;
+            panelImage.color = Color.white;
+        }
+        else
+        {
+            panelImage.color = soupCompleteFallbackColor;
+        }
+
+        LoadSoupCompleteIconSprite();
+        if (soupCompleteIconSprite != null)
+        {
+            var iconObject = new GameObject("SoupCompleteIcon");
+            iconObject.transform.SetParent(panelObject.transform, false);
+
+            var iconRect = iconObject.AddComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0f, 1f);
+            iconRect.anchorMax = new Vector2(0f, 1f);
+            iconRect.pivot = new Vector2(0f, 1f);
+            iconRect.anchoredPosition = new Vector2(16f, -12f);
+            iconRect.sizeDelta = new Vector2(92f, 92f);
+
+            var iconImage = iconObject.AddComponent<Image>();
+            iconImage.sprite = soupCompleteIconSprite;
+            iconImage.color = Color.white;
+            iconImage.preserveAspect = true;
+        }
+
+        var textObject = new GameObject("SoupCompleteText");
+        textObject.transform.SetParent(panelObject.transform, false);
+
+        var textRect = textObject.AddComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0f, 1f);
+        textRect.anchorMax = new Vector2(0f, 1f);
+        textRect.pivot = new Vector2(0f, 1f);
+        textRect.anchoredPosition = new Vector2(118f, -24f);
+        textRect.sizeDelta = new Vector2(soupCompletePanelSize.x - 170f, soupCompletePanelSize.y - 52f);
+
+        var outline = textObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.4f, 0.08f, 0.08f, 0.72f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        soupCompleteText = textObject.AddComponent<Text>();
+        soupCompleteText.font = titleText != null && titleText.font != null
+            ? titleText.font
+            : Resources.GetBuiltinResource<Font>("Arial.ttf");
+        soupCompleteText.fontSize = 30;
+        soupCompleteText.fontStyle = FontStyle.Bold;
+        soupCompleteText.color = soupCompleteTextColor;
+        soupCompleteText.alignment = TextAnchor.MiddleCenter;
+        soupCompleteText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        soupCompleteText.verticalOverflow = VerticalWrapMode.Overflow;
+        soupCompleteText.text = "恭喜你！美味的蘑菇汤煮好了！\n\n按任意键继续";
+
+        soupCompleteCanvas.enabled = false;
+    }
+
+    private void ShowSoupCompletePrompt()
+    {
+        EnsureSoupCompletePrompt();
+        isShowingSoupCompletePrompt = true;
+        soupCompletePromptUnlockTime = Time.time + 2f;
+        RefreshSoupCompletePrompt();
+    }
+
+    private void RefreshSoupCompletePrompt()
+    {
+        if (soupCompleteCanvas == null)
+        {
+            return;
+        }
+
+        soupCompleteCanvas.enabled = isShowingSoupCompletePrompt;
+    }
+
+    private void CloseSoupCompletePrompt()
+    {
+        isShowingSoupCompletePrompt = false;
+        if (soupCompleteCanvas != null)
+        {
+            soupCompleteCanvas.enabled = false;
+        }
+
+        if (pendingSoupCompleteTransition)
+        {
+            pendingSoupCompleteTransition = false;
+            dishPhase = DishPhase.FishCatch;
+            fishCatchState = FishCatchState.NeedToCatch;
+        }
+    }
+
+    private void RefreshCookingTitleLayout()
+    {
+        if (titleText == null)
+        {
+            return;
+        }
+
+        var titleRect = titleText.rectTransform;
+        if (ShouldShowSoupPromptOverlay() && dishPhase == DishPhase.MushroomSoup)
+        {
+            titleRect.anchoredPosition = new Vector2(
+                soupPromptPanelPosition.x + 18f,
+                soupPromptPanelPosition.y - soupPromptPanelSize.y - 12f);
+            titleRect.sizeDelta = new Vector2(320f, 46f);
+            titleText.alignment = TextAnchor.UpperLeft;
+            return;
+        }
+
+        titleRect.anchoredPosition = cookingTitleDefaultPosition;
+        titleRect.sizeDelta = cookingTitleDefaultSize;
+        titleText.alignment = TextAnchor.UpperLeft;
+    }
+
+    private void LoadSoupPromptSprite()
+    {
+        if (soupPromptSprite != null)
+        {
+            return;
+        }
+
+#if UNITY_EDITOR
+        var assets = AssetDatabase.LoadAllAssetRepresentationsAtPath(soupPromptSpriteSheetPath);
+        for (var i = 0; i < assets.Length; i++)
+        {
+            var sprite = assets[i] as Sprite;
+            if (sprite != null && sprite.name == soupPromptSpriteName)
+            {
+                soupPromptSprite = sprite;
+                return;
+            }
+        }
+#endif
+    }
+
+    private void LoadSoupPromptIconSprite()
+    {
+        if (soupPromptIconSprite != null)
+        {
+            return;
+        }
+
+#if UNITY_EDITOR
+        var assets = AssetDatabase.LoadAllAssetRepresentationsAtPath(soupPromptIconSpriteSheetPath);
+        for (var i = 0; i < assets.Length; i++)
+        {
+            var sprite = assets[i] as Sprite;
+            if (sprite != null && sprite.name == soupPromptIconSpriteName)
+            {
+                soupPromptIconSprite = sprite;
+                return;
+            }
+        }
+#endif
+    }
+
+    private void LoadSoupCompleteSprite()
+    {
+        if (soupCompleteSprite != null)
+        {
+            return;
+        }
+
+#if UNITY_EDITOR
+        var assets = AssetDatabase.LoadAllAssetRepresentationsAtPath(soupCompleteSpriteSheetPath);
+        for (var i = 0; i < assets.Length; i++)
+        {
+            var sprite = assets[i] as Sprite;
+            if (sprite != null && sprite.name == soupCompleteSpriteName)
+            {
+                soupCompleteSprite = sprite;
+                return;
+            }
+        }
+#endif
+    }
+
+    private void LoadSoupCompleteIconSprite()
+    {
+        if (soupCompleteIconSprite != null)
+        {
+            return;
+        }
+
+#if UNITY_EDITOR
+        var assets = AssetDatabase.LoadAllAssetRepresentationsAtPath(soupCompleteIconSpriteSheetPath);
+        for (var i = 0; i < assets.Length; i++)
+        {
+            var sprite = assets[i] as Sprite;
+            if (sprite != null && sprite.name == soupCompleteIconSpriteName)
+            {
+                soupCompleteIconSprite = sprite;
+                return;
+            }
+        }
+#endif
     }
 
     private bool NeedsAttention()
