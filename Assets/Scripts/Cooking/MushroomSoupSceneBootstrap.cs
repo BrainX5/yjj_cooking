@@ -57,6 +57,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [Header("HybridBCI Platform")]
     [SerializeField] private bool enableHybridBciPlatformBridge = true;
 
+    [Header("Mini Program Upload")]
+    [SerializeField] private bool enableMiniProgramDataManager = true;
+    [SerializeField] private string gameModule = "room";
+    [SerializeField] private string recipeName = "失重备菜室";
+
     private Font uiFont;
 
     private void Start()
@@ -92,6 +97,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         if (enableHybridBciPlatformBridge)
         {
             EnsureHybridBciPlatformBridge();
+        }
+
+        if (enableMiniProgramDataManager)
+        {
+            EnsureMiniProgramDataManager();
         }
     }
 
@@ -434,6 +444,21 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         RenderSettings.reflectionIntensity = 0.82f;
 
         EnsureDirectionalLight();
+    }
+
+    private void EnsureMiniProgramDataManager()
+    {
+        var manager = FindObjectOfType<MiniProgramGameDataManager>();
+        if (manager == null)
+        {
+            manager = new GameObject("MiniProgramGameDataManager").AddComponent<MiniProgramGameDataManager>();
+        }
+
+        manager.ConfigureSessionDefaults(gameModule, recipeName);
+        if (!manager.HasActiveSession)
+        {
+            manager.BeginSession(gameModule, recipeName);
+        }
     }
 
     private IEnumerator PositionPrimaryActorAtMushroomHouse(Transform actor)

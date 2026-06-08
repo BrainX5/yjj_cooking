@@ -139,6 +139,8 @@ public class MushroomSoupGame : MonoBehaviour
     private bool pendingFrySetup;
     private bool fishHasBeenFlipped;
     private HybridBciGameplayInput gameplayInput;
+    private MiniProgramGameDataManager dataManager;
+    private bool sessionCompletionReported;
 
     public void Initialize(
         ParticleSystem sceneFireEffect,
@@ -210,6 +212,7 @@ public class MushroomSoupGame : MonoBehaviour
         UpdateInteractionState();
         RefreshUI();
         UpdateFireVisuals();
+        ResolveDataManager();
     }
 
     private void Start()
@@ -226,6 +229,7 @@ public class MushroomSoupGame : MonoBehaviour
         RefreshUI();
         UpdateFireVisuals();
         ResolveGameplayInput();
+        ResolveDataManager();
     }
 
     private void Update()
@@ -248,6 +252,7 @@ public class MushroomSoupGame : MonoBehaviour
         UpdateInteractionState();
         HandlePhaseTransitions();
         ResolveGameplayInput();
+        ResolveDataManager();
 
         if (playerNearRiver && dishPhase == DishPhase.FishCatch && IsFishCatchUnlocked())
         {
@@ -265,6 +270,7 @@ public class MushroomSoupGame : MonoBehaviour
         UpdateSoupSurface();
         UpdateFireVisuals();
         RefreshUI();
+        ReportSessionCompletionIfNeeded();
     }
 
     private void HandlePhaseTransitions()
@@ -533,6 +539,7 @@ public class MushroomSoupGame : MonoBehaviour
             soupStage = SoupStage.Completed;
             dishPhase = DishPhase.FishCatch;
             fishCatchState = FishCatchState.NeedToCatch;
+            dataManager?.RecordMilestone("soup_complete");
             TintSoup(new Color(0.84f, 0.77f, 0.56f, 1f));
             CookingAudioController.Instance?.PlayDishComplete();
         }
@@ -570,6 +577,7 @@ public class MushroomSoupGame : MonoBehaviour
             cookProgress = 1f;
             friedFishStage = FriedFishStage.Completed;
             dishPhase = DishPhase.Completed;
+            dataManager?.RecordMilestone("dish_complete");
             fishStatusMessage = "煎鱼完成了，今天的晚餐都准备好了。";
             fishStatusMessageTimer = 4f;
             UpdateFriedFishAppearance();
@@ -581,10 +589,13 @@ public class MushroomSoupGame : MonoBehaviour
     {
         if (soupStage != SoupStage.NeedMushroom || mushroomsAdded >= mushroomsNeeded)
         {
+            RecordInvalidAction("add_mushroom");
             return;
         }
 
         mushroomsAdded++;
+        RecordSuccessfulAction("add_mushroom");
+        dataManager?.RecordMilestone("mushroom_added");
         CookingAudioController.Instance?.PlayMushroomDrop();
         TintSoup(new Color(0.69f, 0.62f, 0.37f, 1f));
 
@@ -609,6 +620,8 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (soupStage == SoupStage.NeedFirstStir)
         {
+            RecordSuccessfulAction("stir_first");
+            dataManager?.RecordMilestone("first_stir");
             soupStage = SoupStage.HeatingToThreeQuarters;
             NudgeSoupSurface(1.18f);
             TintSoup(new Color(0.76f, 0.68f, 0.43f, 1f));
@@ -617,22 +630,34 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (soupStage == SoupStage.NeedSecondStir)
         {
+            RecordSuccessfulAction("stir_second");
+            dataManager?.RecordMilestone("second_stir");
             soupStage = SoupStage.HeatingToDone;
             NudgeSoupSurface(1.22f);
             TintSoup(new Color(0.8f, 0.73f, 0.5f, 1f));
+            return;
         }
+
+        RecordInvalidAction("stir");
     }
 
     private void TryFlipFish()
     {
         if (friedFishStage != FriedFishStage.NeedFlip || !flipLeftQueued || !flipRightQueued)
         {
+            if (flipLeftQueued || flipRightQueued)
+            {
+                RecordInvalidAction("flip_fish");
+            }
+
             return;
         }
 
         flipLeftQueued = false;
         flipRightQueued = false;
         fishHasBeenFlipped = true;
+        RecordSuccessfulAction("flip_fish");
+        dataManager?.RecordMilestone("fish_flipped");
         PlayFishFlipAnimation();
         CookingAudioController.Instance?.PlayFishFlip();
         friedFishStage = FriedFishStage.HeatingToThreeQuarters;
@@ -642,11 +667,18 @@ public class MushroomSoupGame : MonoBehaviour
     {
         if (friedFishStage != FriedFishStage.NeedSeasoning || !seasoningUpQueued || !seasoningDownQueued)
         {
+            if (seasoningUpQueued || seasoningDownQueued)
+            {
+                RecordInvalidAction("season_fish");
+            }
+
             return;
         }
 
         seasoningUpQueued = false;
         seasoningDownQueued = false;
+        RecordSuccessfulAction("season_fish");
+        dataManager?.RecordMilestone("fish_seasoned");
         PlaySeasoningAnimation();
         CookingAudioController.Instance?.PlaySeasoning();
         friedFishStage = FriedFishStage.HeatingToDone;
@@ -1147,6 +1179,8 @@ public class MushroomSoupGame : MonoBehaviour
         {
             fishCatchState = FishCatchState.Caught;
             fishGrip = 1f;
+            RecordSuccessfulAction("catch_fish");
+            dataManager?.RecordFishCaught();
             fishStatusMessage = "恭喜你捉到一只鱼，带回火堆边开始做煎鱼吧。";
             fishStatusMessageTimer = 4f;
             CookingAudioController.Instance?.PlayFishCaught();
@@ -1158,6 +1192,8 @@ public class MushroomSoupGame : MonoBehaviour
             fishCatchState = FishCatchState.Escaped;
             fishGrip = 0f;
             fishHoldTimer = 0f;
+            RecordInvalidAction("catch_fish");
+            dataManager?.RecordFishEscaped();
             fishStatusMessage = "你按得太慢了，鱼逃走了！";
             fishStatusMessageTimer = 2.4f;
             CookingAudioController.Instance?.PlayFishEscape();
@@ -1221,6 +1257,41 @@ public class MushroomSoupGame : MonoBehaviour
         {
             gameplayInput = FindObjectOfType<HybridBciGameplayInput>();
         }
+    }
+
+    private void ResolveDataManager()
+    {
+        if (dataManager != null)
+        {
+            return;
+        }
+
+        dataManager = MiniProgramGameDataManager.Instance;
+        if (dataManager == null)
+        {
+            dataManager = FindObjectOfType<MiniProgramGameDataManager>();
+        }
+    }
+
+    private void RecordSuccessfulAction(string actionId)
+    {
+        dataManager?.RecordActionOutcome(actionId, true);
+    }
+
+    private void RecordInvalidAction(string actionId)
+    {
+        dataManager?.RecordActionOutcome(actionId, false);
+    }
+
+    private void ReportSessionCompletionIfNeeded()
+    {
+        if (sessionCompletionReported || dishPhase != DishPhase.Completed)
+        {
+            return;
+        }
+
+        sessionCompletionReported = true;
+        dataManager?.CompleteSession(true);
     }
 
     private bool CanUsePlatformInput()

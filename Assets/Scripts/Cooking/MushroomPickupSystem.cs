@@ -347,7 +347,11 @@ public class MushroomPickupSystem : MonoBehaviour
             return;
         }
 
-        currentTarget.TryPick();
+        if (currentTarget.TryPick())
+        {
+            MiniProgramGameDataManager.Instance?.RecordHarvestedMushroom();
+        }
+
         SetCurrentTarget(null);
     }
 
