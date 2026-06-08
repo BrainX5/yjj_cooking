@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
-using UnityEngine.SceneManagement;
 
 [DefaultExecutionOrder(-90)]
 public class MiniProgramGameDataManager : MonoBehaviour
@@ -23,7 +22,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
     [SerializeField] private string childId = "child_001";
     [SerializeField] private string wechatCloudEnvId = "cloud1-d9gz2tmfub107d0ff";
     [SerializeField] private string targetCollectionName = "main_game_logs";
-    [SerializeField] private string uploadEndpoint = string.Empty;
+    [SerializeField] private string uploadEndpoint = "https://cloud1-d9gz2tmfub107d0ff-1430429849.ap-shanghai.app.tcloudbase.com/submitGameLog";
     [SerializeField] private string uploadBearerToken = string.Empty;
     [SerializeField] private float requestTimeoutSeconds = 15f;
     [SerializeField] private bool prettyPrintPayload = true;
@@ -94,6 +93,39 @@ public class MiniProgramGameDataManager : MonoBehaviour
         if (!string.IsNullOrWhiteSpace(configuredChildId))
         {
             childId = configuredChildId.Trim();
+        }
+    }
+
+    public void ConfigureUploadTarget(
+        string envId,
+        string collectionName,
+        string endpoint,
+        string bearerToken = null,
+        bool? enableAutoUpload = null)
+    {
+        if (!string.IsNullOrWhiteSpace(envId))
+        {
+            wechatCloudEnvId = envId.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(collectionName))
+        {
+            targetCollectionName = collectionName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(endpoint))
+        {
+            uploadEndpoint = endpoint.Trim();
+        }
+
+        if (bearerToken != null)
+        {
+            uploadBearerToken = bearerToken.Trim();
+        }
+
+        if (enableAutoUpload.HasValue)
+        {
+            autoUploadOnSessionComplete = enableAutoUpload.Value;
         }
     }
 
@@ -589,7 +621,9 @@ public class MiniProgramGameDataManager : MonoBehaviour
             else
             {
                 lastUploadStatus = $"Upload failed ({request.responseCode}): {request.error}";
-                Debug.LogWarning($"MiniProgram upload failed. Body:\n{lastPayloadJson}\nResponse:\n{request.downloadHandler.text}", this);
+                Debug.LogWarning(
+                    $"MiniProgram upload failed.\nEndpoint: {uploadEndpoint}\nStatus: {lastUploadStatus}\nBody:\n{lastPayloadJson}\nResponse:\n{request.downloadHandler.text}",
+                    this);
             }
         }
 

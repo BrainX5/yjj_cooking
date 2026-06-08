@@ -62,6 +62,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private string gameModule = "room";
     [SerializeField] private string recipeName = "失重备菜室";
     [SerializeField] private string childId = "child_001";
+    [SerializeField] private string miniProgramCloudEnvId = "cloud1-d9gz2tmfub107d0ff";
+    [SerializeField] private string miniProgramCollectionName = "main_game_logs";
+    [SerializeField] private string miniProgramUploadEndpoint = "https://cloud1-d9gz2tmfub107d0ff-1430429849.ap-shanghai.app.tcloudbase.com/submitGameLog";
+    [SerializeField] private string miniProgramUploadBearerToken = string.Empty;
+    [SerializeField] private bool autoUploadMiniProgramData = true;
 
     private Font uiFont;
 
@@ -455,6 +460,12 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             manager = new GameObject("MiniProgramGameDataManager").AddComponent<MiniProgramGameDataManager>();
         }
 
+        manager.ConfigureUploadTarget(
+            miniProgramCloudEnvId,
+            miniProgramCollectionName,
+            miniProgramUploadEndpoint,
+            miniProgramUploadBearerToken,
+            autoUploadMiniProgramData);
         manager.ConfigureSessionDefaults(gameModule, recipeName, childId);
         if (!manager.HasActiveSession)
         {
