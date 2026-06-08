@@ -360,7 +360,12 @@ public class MushroomPickupSystem : MonoBehaviour
             return;
         }
 
-        currentTarget.TryPick();
+        if (!currentTarget.TryPick())
+        {
+            return;
+        }
+
+        MushroomSoupGame.Instance?.RegisterHarvestedMushroom();
         attentionPickupTimer = 0f;
         SetCurrentTarget(null);
     }

@@ -1,8 +1,10 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 public class MushroomSoupGame : MonoBehaviour
 {
+    public static MushroomSoupGame Instance { get; private set; }
+
     private enum DishPhase
     {
         MushroomSoup,
@@ -78,6 +80,9 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private Text fishCatchButtonText;
     [SerializeField] private Text fishSliderLabelText;
     [SerializeField] private Slider fishCatchSlider;
+    [SerializeField] private Text inventoryTitleText;
+    [SerializeField] private Text inventoryMushroomText;
+    [SerializeField] private Text inventoryFishText;
 
     [Header("Cooking Settings")]
     [SerializeField] private float interactionDistance = 4.5f;
@@ -109,6 +114,8 @@ public class MushroomSoupGame : MonoBehaviour
     private float firePower;
     private float cookProgress;
     private int mushroomsAdded;
+    private int harvestedMushroomCount;
+    private int caughtFishCount;
     private bool leftStirQueued;
     private bool rightStirQueued;
     private bool flipLeftQueued;
@@ -170,8 +177,12 @@ public class MushroomSoupGame : MonoBehaviour
         Text sceneFishStatusText,
         Text sceneFishCatchButtonText,
         Text sceneFishSliderLabelText,
-        Slider sceneFishCatchSlider)
+        Slider sceneFishCatchSlider,
+        Text sceneInventoryTitleText,
+        Text sceneInventoryMushroomText,
+        Text sceneInventoryFishText)
     {
+        Instance = this;
         fireEffect = sceneFireEffect;
         playerTransform = scenePlayerTransform;
         waterRoot = sceneWaterRoot;
@@ -202,6 +213,9 @@ public class MushroomSoupGame : MonoBehaviour
         fishCatchButtonText = sceneFishCatchButtonText;
         fishSliderLabelText = sceneFishSliderLabelText;
         fishCatchSlider = sceneFishCatchSlider;
+        inventoryTitleText = sceneInventoryTitleText;
+        inventoryMushroomText = sceneInventoryMushroomText;
+        inventoryFishText = sceneInventoryFishText;
 
         SetActivePot(soupPotVisual);
         SetSoupModeVisible(true);
@@ -214,6 +228,7 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void Start()
     {
+        Instance = this;
         if (activePotVisual == null)
         {
             SetActivePot(soupPotVisual != null ? soupPotVisual : fryPotVisual);
@@ -226,6 +241,14 @@ public class MushroomSoupGame : MonoBehaviour
         RefreshUI();
         UpdateFireVisuals();
         ResolveGameplayInput();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     private void Update()
@@ -269,13 +292,7 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void HandlePhaseTransitions()
     {
-        if (pendingFrySetup && playerInCookingRange)
-        {
-            BeginFriedFish();
-            return;
-        }
-
-        if (dishPhase == DishPhase.FishCatch && fishCatchState == FishCatchState.Caught && !pendingFrySetup)
+        if (dishPhase == DishPhase.FishCatch && !pendingFrySetup && caughtFishCount > 0 && playerInCookingRange)
         {
             pendingFrySetup = true;
             friedFishStage = FriedFishStage.ReturnToFire;
@@ -283,10 +300,12 @@ public class MushroomSoupGame : MonoBehaviour
             SetSoupModeVisible(false);
             SetFryModeVisible(true);
             SetActivePot(fryPotVisual != null ? fryPotVisual : soupPotVisual);
-            if (playerInCookingRange)
-            {
-                BeginFriedFish();
-            }
+        }
+
+        if (pendingFrySetup && playerInCookingRange)
+        {
+            BeginFriedFish();
+            return;
         }
     }
 
@@ -579,11 +598,12 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void TryAddMushroom()
     {
-        if (soupStage != SoupStage.NeedMushroom || mushroomsAdded >= mushroomsNeeded)
+        if (soupStage != SoupStage.NeedMushroom || mushroomsAdded >= mushroomsNeeded || harvestedMushroomCount <= 0)
         {
             return;
         }
 
+        harvestedMushroomCount--;
         mushroomsAdded++;
         CookingAudioController.Instance?.PlayMushroomDrop();
         TintSoup(new Color(0.69f, 0.62f, 0.37f, 1f));
@@ -870,6 +890,8 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void RefreshUI()
     {
+        RefreshInventoryUI();
+
         var showCookingPanel = playerInCookingRange && (dishPhase == DishPhase.MushroomSoup || dishPhase == DishPhase.FishCatch || dishPhase == DishPhase.FriedFish || dishPhase == DishPhase.Completed);
         var showFishingPanel = playerNearRiver && playerFarEnoughFromPotForFishing && dishPhase == DishPhase.FishCatch && IsFishCatchUnlocked();
 
@@ -891,6 +913,49 @@ public class MushroomSoupGame : MonoBehaviour
         if (showFishingPanel)
         {
             RefreshFishingUI();
+        }
+
+        ApplyReadableUiOverrides();
+    }
+
+    private void ApplyReadableUiOverrides()
+    {
+        if (inventoryTitleText != null)
+        {
+            inventoryTitleText.text = "\u6211\u7684\u80cc\u5305";
+        }
+
+        if (inventoryMushroomText != null)
+        {
+            inventoryMushroomText.text = $"\u8611\u83c7: {harvestedMushroomCount}";
+        }
+
+        if (inventoryFishText != null)
+        {
+            inventoryFishText.text = $"\u9c7c: {caughtFishCount}";
+        }
+
+        if (dishPhase == DishPhase.FishCatch && mushroomCountText != null && caughtFishCount > 0)
+        {
+            mushroomCountText.text = $"\u5df2\u6293\u5230 {caughtFishCount} \u6761\u9c7c\uff0c\u56de\u5230\u9505\u8fb9\u4f1a\u81ea\u52a8\u5f00\u59cb\u714e\u9c7c\u3002";
+        }
+    }
+
+    private void RefreshInventoryUI()
+    {
+        if (inventoryTitleText != null)
+        {
+            inventoryTitleText.text = "我的背包";
+        }
+
+        if (inventoryMushroomText != null)
+        {
+            inventoryMushroomText.text = $"蘑菇: {harvestedMushroomCount}";
+        }
+
+        if (inventoryFishText != null)
+        {
+            inventoryFishText.text = $"鱼: {caughtFishCount}";
         }
     }
 
@@ -932,9 +997,9 @@ public class MushroomSoupGame : MonoBehaviour
             }
             else if (dishPhase == DishPhase.FishCatch)
             {
-                mushroomCountText.text = fishCatchState == FishCatchState.Caught
-                    ? "你已经抓到鱼了，回到锅边开始煎鱼。"
-                    : "先完成抓鱼，才能开始煎鱼。";
+                mushroomCountText.text = caughtFishCount > 0
+                    ? $"已抓到 {caughtFishCount} 条鱼，回到锅边会自动开始煎鱼。"
+                    : "先在河边抓到鱼，才能开始煎鱼。";
             }
             else if (dishPhase == DishPhase.FriedFish)
             {
@@ -1034,9 +1099,9 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (dishPhase == DishPhase.FishCatch)
         {
-            if (fishCatchState == FishCatchState.Caught)
+            if (caughtFishCount > 0)
             {
-                return "你已经抓到鱼了，回到火堆旁就会开始煎鱼。";
+                return "你已经抓到鱼了，可以继续在河边抓，回锅边也能开始煎鱼。";
             }
 
             return "蘑菇汤已经完成，下一道菜是煎鱼。请先去河边抓鱼。";
@@ -1145,9 +1210,12 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (fishHoldTimer >= fishCatchHoldDuration)
         {
-            fishCatchState = FishCatchState.Caught;
-            fishGrip = 1f;
-            fishStatusMessage = "恭喜你捉到一只鱼，带回火堆边开始做煎鱼吧。";
+            caughtFishCount++;
+            fishCatchState = FishCatchState.NeedToCatch;
+            fishGrip = 0f;
+            fishHoldTimer = 0f;
+            fishLastPressTime = Time.time;
+            fishStatusMessage = $"恭喜你抓到第 {caughtFishCount} 条鱼，还可以继续抓。";
             fishStatusMessageTimer = 4f;
             CookingAudioController.Instance?.PlayFishCaught();
             return;
@@ -1240,11 +1308,12 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void BeginFriedFish()
     {
-        if (!pendingFrySetup)
+        if (!pendingFrySetup || caughtFishCount <= 0)
         {
             return;
         }
 
+        caughtFishCount--;
         pendingFrySetup = false;
         dishPhase = DishPhase.FriedFish;
         friedFishStage = FriedFishStage.HeatingToHalf;
@@ -1259,6 +1328,12 @@ public class MushroomSoupGame : MonoBehaviour
         CacheVisualState();
         UpdateFriedFishAppearance();
         CookingAudioController.Instance?.PlayUiClose();
+    }
+
+    public void RegisterHarvestedMushroom()
+    {
+        harvestedMushroomCount++;
+        RefreshInventoryUI();
     }
 
     private void SetActivePot(Transform targetPot)
@@ -1442,3 +1517,4 @@ public class MushroomSoupGame : MonoBehaviour
         return bounds;
     }
 }
+

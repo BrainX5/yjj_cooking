@@ -165,7 +165,10 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             out var fishStatusText,
             out var fishCatchButtonText,
             out var fishSliderLabelText,
-            out var fishCatchSlider);
+            out var fishCatchSlider,
+            out var inventoryTitleText,
+            out var inventoryMushroomText,
+            out var inventoryFishText);
 
         var gameObject = new GameObject("MushroomSoupGame");
         var game = gameObject.AddComponent<MushroomSoupGame>();
@@ -199,7 +202,10 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
             fishStatusText,
             fishCatchButtonText,
             fishSliderLabelText,
-            fishCatchSlider);
+            fishCatchSlider,
+            inventoryTitleText,
+            inventoryMushroomText,
+            inventoryFishText);
     }
 
     private Camera EnsureCamera()
@@ -1270,7 +1276,10 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         out Text fishStatusText,
         out Text fishCatchButtonText,
         out Text fishSliderLabelText,
-        out Slider fishCatchSlider)
+        out Slider fishCatchSlider,
+        out Text inventoryTitleText,
+        out Text inventoryMushroomText,
+        out Text inventoryFishText)
     {
         var canvasObject = new GameObject("Cooking UI");
         var canvas = canvasObject.AddComponent<Canvas>();
@@ -1308,6 +1317,10 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         fishSliderLabelText = CreateText(fishingPanel.transform, "FishSliderLabel", new Vector2(40f, -380f), new Vector2(180f, 34f), 22, FontStyle.Bold);
         fishCatchSlider = CreateSlider(fishingPanel.transform, "FishCatchSlider", new Vector2(220f, -374f), new Color(0.2f, 0.8f, 0.95f, 1f));
 
+        inventoryTitleText = CreateText(canvas.transform, "InventoryTitle", new Vector2(40f, 124f), new Vector2(220f, 44f), 26, FontStyle.Bold, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f));
+        inventoryMushroomText = CreateText(canvas.transform, "InventoryMushroom", new Vector2(40f, 82f), new Vector2(220f, 36f), 22, FontStyle.Normal, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f));
+        inventoryFishText = CreateText(canvas.transform, "InventoryFish", new Vector2(40f, 46f), new Vector2(220f, 36f), 22, FontStyle.Normal, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f));
+
         fishingPanel.SetActive(false);
     }
 
@@ -1322,13 +1335,18 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
 
     private Text CreateText(Transform parent, string name, Vector2 anchoredPosition, Vector2 size, int fontSize, FontStyle fontStyle)
     {
+        return CreateText(parent, name, anchoredPosition, size, fontSize, fontStyle, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
+    }
+
+    private Text CreateText(Transform parent, string name, Vector2 anchoredPosition, Vector2 size, int fontSize, FontStyle fontStyle, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot)
+    {
         var textObject = new GameObject(name);
         textObject.transform.SetParent(parent);
 
         var rect = textObject.AddComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0f, 1f);
-        rect.anchorMax = new Vector2(0f, 1f);
-        rect.pivot = new Vector2(0f, 1f);
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.pivot = pivot;
         rect.anchoredPosition = anchoredPosition;
         rect.sizeDelta = size;
 
