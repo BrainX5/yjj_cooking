@@ -128,6 +128,17 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private float attentionFireGainPerSecond = 0.55f;
     [SerializeField] private float attentionFishGripGainPerSecond = 0.45f;
 
+    [Header("Adaptive Attention Difficulty")]
+    [SerializeField] private bool useAdaptiveAttentionThresholds = true;
+    [SerializeField] private float adaptiveAttentionStartThreshold = 42f;
+    [SerializeField] private float adaptiveAttentionMinThreshold = 38f;
+    [SerializeField] private float adaptiveAttentionMaxThreshold = 60f;
+    [SerializeField] private float adaptiveAttentionDeactivateGap = 5f;
+    [SerializeField] private float adaptiveAttentionRaiseStep = 2f;
+    [SerializeField] private float adaptiveAttentionLowerStep = 2f;
+    [SerializeField] private float adaptiveCookingStruggleSeconds = 4f;
+    [SerializeField] private float adaptiveFishStruggleSeconds = 3f;
+
     private DishPhase dishPhase = DishPhase.MushroomSoup;
     private SoupStage soupStage = SoupStage.NeedMushroom;
     private FishCatchState fishCatchState = FishCatchState.Locked;
@@ -186,6 +197,12 @@ public class MushroomSoupGame : MonoBehaviour
     private float soupCompletePromptUnlockTime;
     private MiniProgramGameDataManager dataManager;
     private bool sessionCompletionReported;
+    private float cookingAttentionThreshold;
+    private float fishAttentionThreshold;
+    private float cookingAttentionStruggleTimer;
+    private float fishAttentionStruggleTimer;
+    private bool cookingAttentionActive;
+    private bool fishAttentionActive;
 
     public void Initialize(
         ParticleSystem sceneFireEffect,
@@ -270,6 +287,7 @@ public class MushroomSoupGame : MonoBehaviour
         RefreshUI();
         UpdateFireVisuals();
         ResolveDataManager();
+        ResetAdaptiveAttentionThresholds();
     }
 
     private void Start()
@@ -293,6 +311,7 @@ public class MushroomSoupGame : MonoBehaviour
         UpdateFireVisuals();
         ResolveGameplayInput();
         ResolveDataManager();
+        ResetAdaptiveAttentionThresholds();
     }
 
     private void OnDestroy()
@@ -342,6 +361,7 @@ public class MushroomSoupGame : MonoBehaviour
         HandlePhaseTransitions();
         ResolveGameplayInput();
         ResolveDataManager();
+        UpdateAdaptiveAttentionThresholds();
 
         if (playerNearRiver && dishPhase == DishPhase.FishCatch && IsFishCatchUnlocked())
         {
@@ -424,7 +444,7 @@ public class MushroomSoupGame : MonoBehaviour
     private void ReadCookingInput()
     {
         var keyboardFirePressed = Input.GetKeyDown(KeyCode.Space) && !MushroomPickupSystem.HasFocusedHarvestable;
-        var platformFireActive = CanUsePlatformInput() && gameplayInput.IsAttentionActive && !MushroomPickupSystem.HasFocusedHarvestable;
+        var platformFireActive = CanUsePlatformInput() && IsCookingAttentionActive() && !MushroomPickupSystem.HasFocusedHarvestable;
 
         if (keyboardFirePressed)
         {
@@ -536,7 +556,7 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         var keyboardCatchPressed = Input.GetKeyDown(KeyCode.Space);
-        var platformCatchPressed = CanUsePlatformInput() && gameplayInput.IsAttentionActive;
+        var platformCatchPressed = CanUsePlatformInput() && IsFishAttentionActive();
 
         if ((!keyboardCatchPressed && !platformCatchPressed) || fishCatchState == FishCatchState.Caught)
         {
@@ -594,8 +614,7 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         if (CanUsePlatformInput() &&
-            gameplayInput != null &&
-            gameplayInput.IsAttentionActive &&
+            IsCookingAttentionActive() &&
             !MushroomPickupSystem.HasFocusedHarvestable)
         {
             return;
@@ -639,6 +658,7 @@ public class MushroomSoupGame : MonoBehaviour
         {
             cookProgress = 0.25f;
             soupStage = SoupStage.NeedMushroom;
+            AdjustCookingAttentionThreshold(adaptiveAttentionRaiseStep);
             return;
         }
 
@@ -646,6 +666,7 @@ public class MushroomSoupGame : MonoBehaviour
         {
             cookProgress = 0.5f;
             soupStage = SoupStage.NeedFirstStir;
+            AdjustCookingAttentionThreshold(adaptiveAttentionRaiseStep);
             return;
         }
 
@@ -653,6 +674,7 @@ public class MushroomSoupGame : MonoBehaviour
         {
             cookProgress = 0.75f;
             soupStage = SoupStage.NeedSecondStir;
+            AdjustCookingAttentionThreshold(adaptiveAttentionRaiseStep);
             return;
         }
 
@@ -685,6 +707,7 @@ public class MushroomSoupGame : MonoBehaviour
         {
             cookProgress = 0.5f;
             friedFishStage = FriedFishStage.NeedFlip;
+            AdjustCookingAttentionThreshold(adaptiveAttentionRaiseStep);
             return;
         }
 
@@ -692,6 +715,7 @@ public class MushroomSoupGame : MonoBehaviour
         {
             cookProgress = 0.75f;
             friedFishStage = FriedFishStage.NeedSeasoning;
+            AdjustCookingAttentionThreshold(adaptiveAttentionRaiseStep);
             return;
         }
 
@@ -1169,7 +1193,7 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (mushroomCountText != null)
         {
-            mushroomCountText.text = $"实时专注力 {GetLiveAttentionDisplay()}";
+            mushroomCountText.text = $"实时专注力 {GetLiveAttentionDisplay()}  当前门槛 {GetCookingAttentionThresholdDisplay()}";
             mushroomCountText.color = CanUsePlatformInput()
                 ? new Color(1f, 0.96f, 0.7f, 1f)
                 : new Color(0.86f, 0.9f, 0.96f, 1f);
@@ -1212,15 +1236,17 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (fishStatusText != null)
         {
-            fishStatusText.text = GetFishStatusText();
+            fishStatusText.text = CanUsePlatformInput()
+                ? $"{GetFishStatusText()}\n实时专注力 {GetLiveAttentionDisplay()}  当前门槛 {GetFishAttentionThresholdDisplay()}"
+                : GetFishStatusText();
         }
 
         if (fishCatchButtonText != null)
         {
             fishCatchButtonText.text = CanUsePlatformInput()
                 ? (fishCatchState == FishCatchState.Catching
-                    ? "[ 专注 ] 保持注意力，稳稳抓住鱼"
-                    : "[ 专注 ] 集中注意力，开始捉鱼")
+                    ? $"[ 专注 ] 当前门槛 {GetFishAttentionThresholdDisplay()}，稳稳保持注意力"
+                    : $"[ 专注 ] 当前门槛 {GetFishAttentionThresholdDisplay()}，集中注意力开始捉鱼")
                 : (fishCatchState == FishCatchState.Catching
                     ? "[ 空格 ] 持续猛按，把鱼抓紧"
                     : "[ 空格 ] 开始捉鱼");
@@ -1945,7 +1971,7 @@ public class MushroomSoupGame : MonoBehaviour
 
         fishGrip = Mathf.Clamp01(fishGrip - fishGripDecayPerSecond * Time.deltaTime);
 
-        if (CanUsePlatformInput() && gameplayInput.IsAttentionActive)
+        if (CanUsePlatformInput() && IsFishAttentionActive())
         {
             fishGrip = Mathf.Clamp01(fishGrip + attentionFishGripGainPerSecond * Time.deltaTime);
             fishLastPressTime = Time.time;
@@ -1968,6 +1994,7 @@ public class MushroomSoupGame : MonoBehaviour
             fishHoldTimer = 0f;
             fishLastPressTime = Time.time;
             nextFishCatchAllowedTime = Time.time + fishCatchRetryDelay;
+            AdjustFishAttentionThreshold(adaptiveAttentionRaiseStep);
             RecordSuccessfulAction("catch_fish");
             dataManager?.RecordFishCaught();
             fishStatusMessage = "成功抓到一条鱼。";
@@ -1981,6 +2008,7 @@ public class MushroomSoupGame : MonoBehaviour
             fishCatchState = FishCatchState.Escaped;
             fishGrip = 0f;
             fishHoldTimer = 0f;
+            AdjustFishAttentionThreshold(-adaptiveAttentionLowerStep);
             RecordInvalidAction("catch_fish");
             dataManager?.RecordFishEscaped();
             fishStatusMessage = "没关系，这条小鱼太灵活啦。我们马上再试一次。";
@@ -2032,6 +2060,199 @@ public class MushroomSoupGame : MonoBehaviour
     private bool IsFishCatchUnlocked()
     {
         return fishCatchState != FishCatchState.Locked;
+    }
+
+    private void ResetAdaptiveAttentionThresholds()
+    {
+        var startThreshold = Mathf.Clamp(
+            adaptiveAttentionStartThreshold,
+            adaptiveAttentionMinThreshold,
+            adaptiveAttentionMaxThreshold);
+        cookingAttentionThreshold = startThreshold;
+        fishAttentionThreshold = startThreshold;
+        cookingAttentionStruggleTimer = 0f;
+        fishAttentionStruggleTimer = 0f;
+        cookingAttentionActive = false;
+        fishAttentionActive = false;
+    }
+
+    private void UpdateAdaptiveAttentionThresholds()
+    {
+        if (!useAdaptiveAttentionThresholds)
+        {
+            var legacyAttentionActive = gameplayInput != null && gameplayInput.IsAttentionActive;
+            cookingAttentionActive = legacyAttentionActive;
+            fishAttentionActive = legacyAttentionActive;
+            return;
+        }
+
+        var attentionValue = GetCurrentAttentionValue();
+        if (!CanUsePlatformInput() || attentionValue < 0f)
+        {
+            cookingAttentionActive = false;
+            fishAttentionActive = false;
+            cookingAttentionStruggleTimer = 0f;
+            fishAttentionStruggleTimer = 0f;
+            return;
+        }
+
+        cookingAttentionActive = UpdateAdaptiveAttentionGate(
+            attentionValue,
+            cookingAttentionThreshold,
+            cookingAttentionActive);
+        fishAttentionActive = UpdateAdaptiveAttentionGate(
+            attentionValue,
+            fishAttentionThreshold,
+            fishAttentionActive);
+
+        UpdateCookingAttentionStruggle();
+        UpdateFishAttentionStruggle();
+    }
+
+    private bool UpdateAdaptiveAttentionGate(float attentionValue, float threshold, bool wasActive)
+    {
+        var deactivateThreshold = Mathf.Max(adaptiveAttentionMinThreshold, threshold - adaptiveAttentionDeactivateGap);
+        if (!wasActive && attentionValue >= threshold)
+        {
+            return true;
+        }
+
+        if (wasActive && attentionValue <= deactivateThreshold)
+        {
+            return false;
+        }
+
+        return wasActive;
+    }
+
+    private void UpdateCookingAttentionStruggle()
+    {
+        if (!ShouldMonitorCookingAttentionStruggle())
+        {
+            cookingAttentionStruggleTimer = 0f;
+            return;
+        }
+
+        if (cookingAttentionActive || firePower > 0.08f)
+        {
+            cookingAttentionStruggleTimer = 0f;
+            return;
+        }
+
+        cookingAttentionStruggleTimer += Time.deltaTime;
+        if (cookingAttentionStruggleTimer >= adaptiveCookingStruggleSeconds)
+        {
+            AdjustCookingAttentionThreshold(-adaptiveAttentionLowerStep);
+            cookingAttentionStruggleTimer = 0f;
+        }
+    }
+
+    private void UpdateFishAttentionStruggle()
+    {
+        if (!ShouldMonitorFishAttentionStruggle())
+        {
+            fishAttentionStruggleTimer = 0f;
+            return;
+        }
+
+        if (fishAttentionActive || fishGrip > 0.25f)
+        {
+            fishAttentionStruggleTimer = 0f;
+            return;
+        }
+
+        fishAttentionStruggleTimer += Time.deltaTime;
+        if (fishAttentionStruggleTimer >= adaptiveFishStruggleSeconds)
+        {
+            AdjustFishAttentionThreshold(-adaptiveAttentionLowerStep);
+            fishAttentionStruggleTimer = 0f;
+        }
+    }
+
+    private bool ShouldMonitorCookingAttentionStruggle()
+    {
+        if (!playerInCookingRange || MushroomPickupSystem.HasFocusedHarvestable)
+        {
+            return false;
+        }
+
+        return (dishPhase == DishPhase.MushroomSoup &&
+                (soupStage == SoupStage.HeatingToQuarter ||
+                 soupStage == SoupStage.HeatingToHalf ||
+                 soupStage == SoupStage.HeatingToThreeQuarters ||
+                 soupStage == SoupStage.HeatingToDone)) ||
+               (dishPhase == DishPhase.FriedFish &&
+                (friedFishStage == FriedFishStage.HeatingToHalf ||
+                 friedFishStage == FriedFishStage.HeatingToThreeQuarters ||
+                 friedFishStage == FriedFishStage.HeatingToDone));
+    }
+
+    private bool ShouldMonitorFishAttentionStruggle()
+    {
+        if (!playerNearRiver || !playerFarEnoughFromPotForFishing || dishPhase != DishPhase.FishCatch || !IsFishCatchUnlocked())
+        {
+            return false;
+        }
+
+        return fishCatchState == FishCatchState.NeedToCatch ||
+               fishCatchState == FishCatchState.Catching ||
+               fishCatchState == FishCatchState.Escaped;
+    }
+
+    private void AdjustCookingAttentionThreshold(float delta)
+    {
+        cookingAttentionThreshold = Mathf.Clamp(
+            cookingAttentionThreshold + delta,
+            adaptiveAttentionMinThreshold,
+            adaptiveAttentionMaxThreshold);
+    }
+
+    private void AdjustFishAttentionThreshold(float delta)
+    {
+        fishAttentionThreshold = Mathf.Clamp(
+            fishAttentionThreshold + delta,
+            adaptiveAttentionMinThreshold,
+            adaptiveAttentionMaxThreshold);
+    }
+
+    private bool IsCookingAttentionActive()
+    {
+        return useAdaptiveAttentionThresholds ? cookingAttentionActive : gameplayInput != null && gameplayInput.IsAttentionActive;
+    }
+
+    private bool IsFishAttentionActive()
+    {
+        return useAdaptiveAttentionThresholds ? fishAttentionActive : gameplayInput != null && gameplayInput.IsAttentionActive;
+    }
+
+    private float GetCurrentAttentionValue()
+    {
+        if (gameplayInput != null && gameplayInput.HasLiveConnection)
+        {
+            return gameplayInput.SmoothedAttention;
+        }
+
+        var bridge = HybridBciPlatformBridge.Instance;
+        if (bridge != null && bridge.IsConnected && bridge.AttentionValue >= 0)
+        {
+            return bridge.AttentionValue;
+        }
+
+        return -1f;
+    }
+
+    private string GetCookingAttentionThresholdDisplay()
+    {
+        return CanUsePlatformInput()
+            ? Mathf.RoundToInt(cookingAttentionThreshold).ToString()
+            : "--";
+    }
+
+    private string GetFishAttentionThresholdDisplay()
+    {
+        return CanUsePlatformInput()
+            ? Mathf.RoundToInt(fishAttentionThreshold).ToString()
+            : "--";
     }
 
     private void ResolveGameplayInput()
