@@ -545,7 +545,9 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (fishCatchState == FishCatchState.Escaped)
         {
-            fishStatusMessage = "重新准备，集中注意力或猛按空格把鱼抓稳。";
+            fishStatusMessage = CanUsePlatformInput()
+                ? "准备好了就再来一次，稳稳保持注意力，小鱼会慢慢安静下来。"
+                : "准备好了就再来一次，连续按空格，小鱼会慢慢安静下来。";
             fishStatusMessageTimer = 1.5f;
             fishCatchState = FishCatchState.NeedToCatch;
         }
@@ -555,7 +557,9 @@ public class MushroomSoupGame : MonoBehaviour
             fishCatchState = FishCatchState.Catching;
             fishGrip = 0.22f;
             fishHoldTimer = 0f;
-            fishStatusMessage = "抓到了，保持专注或快速连按空格，别让它逃走。";
+            fishStatusMessage = CanUsePlatformInput()
+                ? "抓住啦，继续稳稳保持注意力，小鱼就会留住。"
+                : "抓住啦，继续连续按空格，小鱼就会留住。";
             fishStatusMessageTimer = 1.2f;
         }
         else if (fishCatchState == FishCatchState.Catching && keyboardCatchPressed)
@@ -1159,30 +1163,16 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (progressText != null)
         {
-            progressText.text = $"专注力 {GetLiveAttentionDisplay()}";
-            progressText.color = CanUsePlatformInput() ? cookingHudHighlightColor : new Color(0.88f, 0.92f, 0.98f, 1f);
+            progressText.text = $"当前进度 {(cookProgress * 100f):0}%";
+            progressText.color = new Color(0.88f, 1f, 0.72f, 1f);
         }
 
         if (mushroomCountText != null)
         {
-            if (dishPhase == DishPhase.MushroomSoup)
-            {
-                mushroomCountText.text = $"已加蘑菇: {mushroomsAdded}/{mushroomsNeeded}";
-            }
-            else if (dishPhase == DishPhase.FishCatch)
-            {
-                mushroomCountText.text = caughtFishCount > 0
-                    ? $"已抓到 {caughtFishCount} 条鱼，回到锅边会自动开始煎鱼。"
-                    : "先在河边抓到鱼，才能开始煎鱼。";
-            }
-            else if (dishPhase == DishPhase.FriedFish)
-            {
-                mushroomCountText.text = GetFriedFishStatusLine();
-            }
-            else
-            {
-                mushroomCountText.text = "今晚的料理都完成了。";
-            }
+            mushroomCountText.text = $"实时专注力 {GetLiveAttentionDisplay()}";
+            mushroomCountText.color = CanUsePlatformInput()
+                ? new Color(1f, 0.96f, 0.7f, 1f)
+                : new Color(0.86f, 0.9f, 0.96f, 1f);
         }
 
         if (fireSliderLabelText != null)
@@ -1634,9 +1624,9 @@ public class MushroomSoupGame : MonoBehaviour
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(0f, 165f);
-            rect.sizeDelta = new Vector2(760f, 80f);
-            fireValueText.fontSize = 42;
+            rect.anchoredPosition = new Vector2(0f, 190f);
+            rect.sizeDelta = new Vector2(820f, 86f);
+            fireValueText.fontSize = 46;
             fireValueText.fontStyle = FontStyle.Bold;
             fireValueText.alignment = TextAnchor.MiddleCenter;
         }
@@ -1647,9 +1637,9 @@ public class MushroomSoupGame : MonoBehaviour
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(0f, 115f);
-            rect.sizeDelta = new Vector2(700f, 60f);
-            progressText.fontSize = 30;
+            rect.anchoredPosition = new Vector2(0f, 132f);
+            rect.sizeDelta = new Vector2(820f, 72f);
+            progressText.fontSize = 40;
             progressText.fontStyle = FontStyle.Bold;
             progressText.alignment = TextAnchor.MiddleCenter;
         }
@@ -1660,9 +1650,9 @@ public class MushroomSoupGame : MonoBehaviour
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(0f, 55f);
-            rect.sizeDelta = new Vector2(860f, 60f);
-            mushroomCountText.fontSize = 26;
+            rect.anchoredPosition = new Vector2(0f, 76f);
+            rect.sizeDelta = new Vector2(860f, 64f);
+            mushroomCountText.fontSize = 32;
             mushroomCountText.fontStyle = FontStyle.Bold;
             mushroomCountText.alignment = TextAnchor.MiddleCenter;
         }
@@ -1673,7 +1663,7 @@ public class MushroomSoupGame : MonoBehaviour
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(-290f, -2f);
+            rect.anchoredPosition = new Vector2(-290f, 14f);
             rect.sizeDelta = new Vector2(180f, 40f);
             fireSliderLabelText.fontSize = 26;
             fireSliderLabelText.fontStyle = FontStyle.Bold;
@@ -1687,7 +1677,7 @@ public class MushroomSoupGame : MonoBehaviour
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(45f, 4f);
+            rect.anchoredPosition = new Vector2(45f, 20f);
             rect.sizeDelta = new Vector2(520f, 42f);
         }
 
@@ -1697,7 +1687,7 @@ public class MushroomSoupGame : MonoBehaviour
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(-290f, -58f);
+            rect.anchoredPosition = new Vector2(-290f, -42f);
             rect.sizeDelta = new Vector2(180f, 40f);
             progressSliderLabelText.fontSize = 24;
             progressSliderLabelText.fontStyle = FontStyle.Bold;
@@ -1710,7 +1700,7 @@ public class MushroomSoupGame : MonoBehaviour
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(45f, -52f);
+            rect.anchoredPosition = new Vector2(45f, -36f);
             rect.sizeDelta = new Vector2(520f, 42f);
         }
     }
@@ -1913,7 +1903,7 @@ public class MushroomSoupGame : MonoBehaviour
             fishHoldTimer = 0f;
             RecordInvalidAction("catch_fish");
             dataManager?.RecordFishEscaped();
-            fishStatusMessage = "你按得太慢了，鱼逃走了！";
+            fishStatusMessage = "没关系，这条小鱼太灵活啦。我们马上再试一次。";
             fishStatusMessageTimer = 2.4f;
             CookingAudioController.Instance?.PlayFishEscape();
         }
@@ -1927,9 +1917,9 @@ public class MushroomSoupGame : MonoBehaviour
             case FishCatchState.NeedToCatch:
                 return usingPlatform ? "煎鱼的第一步是去河边捉鱼。集中注意力开始，并持续保持专注。" : "煎鱼的第一步是去河边捉鱼。按空格开始，然后快速连续按 6 秒。";
             case FishCatchState.Catching:
-                return usingPlatform ? "注意力越稳定，鱼抓得越紧。一旦走神，鱼就会挣脱。" : "按得越快，鱼抓得越紧。一旦慢下来，鱼就会挣脱。";
+                return usingPlatform ? "你越专心，小鱼就越安静。继续稳稳保持就可以啦。" : "按得越稳越连续，小鱼就越安静。继续保持就可以啦。";
             case FishCatchState.Escaped:
-                return "鱼溜走了，准备好后可以再试一次。";
+                return "刚才已经很接近啦，准备好了我们再试一次。";
             case FishCatchState.Caught:
                 return "你已经捉到了鱼，回火堆边开始煎鱼。";
             default:
