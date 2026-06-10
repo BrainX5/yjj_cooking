@@ -1,10 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class MushroomPickupSystem : MonoBehaviour
 {
     public static bool HasFocusedHarvestable { get; private set; }
+    public static MushroomPickupSystem Instance { get; private set; }
 
     [Header("Scene Mushrooms")]
     [SerializeField] private string mushroomHouseName = "Mushroom House";
@@ -21,18 +25,32 @@ public class MushroomPickupSystem : MonoBehaviour
     [SerializeField] private string titleLabel = "\u8611\u83c7\u91c7\u96c6";
     [SerializeField] private string pickupPrompt = "\u63d0\u793a\uff1a\u73b0\u5728\u53ef\u4ee5\u91c7\u8611\u83c7\uff0c\u8bf7\u6309\u7a7a\u683c\u952e\u62fe\u53d6\u3002";
     [SerializeField] private string platformPickupPrompt = "\u63d0\u793a\uff1a\u9760\u8fd1\u540e\u70b9\u5934\u4e00\u6b21\uff0c\u6216\u8005\u6309\u7a7a\u683c\u952e\u62fe\u53d6\u8611\u83c7\u3002";
+    [SerializeField] private string gatherIntroPrompt = "\u6e38\u620f\u5f00\u59cb\u5148\u53bb\u91c7\u8611\u83c7\uff0c\u81f3\u5c11\u91c7\u4e09\u4e2a\uff0c\u518d\u56de\u9505\u8fb9\u6309\u4e0a\u4e0b\u952e\u628a\u8611\u83c7\u653e\u8fdb\u9505\u91cc\u3002";
+    [SerializeField] private string gatherReadyPrompt = "\u8611\u83c7\u5df2\u7ecf\u591f\u4e86\uff0c\u56de\u9505\u8fb9\u6309\u4e0a\u4e0b\u952e\u8fde\u7eed\u653e\u8611\u83c7\uff0c\u81f3\u5c11\u653e\u4e09\u4e2a\u3002";
     [SerializeField] private int titleFontSize = 38;
-    [SerializeField] private int promptFontSize = 38;
-    [SerializeField] private Color promptColor = new Color(1f, 0.35f, 0.2f, 1f);
+    [SerializeField] private int promptFontSize = 32;
+    [SerializeField] private Color promptColor = new Color(1f, 0.98f, 0.93f, 1f);
+    [SerializeField] private Vector2 dialogPosition = new Vector2(-360f, -48f);
+    [SerializeField] private Vector2 dialogSize = new Vector2(720f, 260f);
+    [SerializeField] private Color dialogFallbackColor = new Color(0.79f, 0.35f, 0.2f, 0.96f);
+    [SerializeField] private string dialogSpriteSheetPath = "Assets/ONDAD/Alert Panels/Graphics/Panels_SpriteSheet.png";
+    [SerializeField] private string dialogSpriteName = "Panels_SpriteSheet_1";
+    [SerializeField] private string iconSpriteSheetPath = "Assets/ONDAD/Alert Panels/Graphics/UI_SpriteSheet.png";
+    [SerializeField] private string iconSpriteName = "UI_SpriteSheet_17";
 
     private readonly List<HarvestableMushroom> harvestables = new List<HarvestableMushroom>();
 
     private Transform playerRoot;
     private HarvestableMushroom currentTarget;
     private Canvas promptCanvas;
+    private Image promptBackgroundImage;
     private Text titleText;
     private Text promptText;
     private Font uiFont;
+    private Sprite dialogSprite;
+    private Sprite iconSprite;
+    private bool externalPromptVisible;
+    private string externalPromptText = string.Empty;
 
     public void Configure(
         string houseName,
@@ -50,6 +68,7 @@ public class MushroomPickupSystem : MonoBehaviour
 
     private void Start()
     {
+        Instance = this;
         EnsurePromptUi();
         CacheSceneMushrooms();
         RefreshPrompt();
@@ -89,6 +108,14 @@ public class MushroomPickupSystem : MonoBehaviour
         HasFocusedHarvestable = false;
         SetCurrentTarget(null);
         RefreshPrompt();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     private bool NeedsRescan()
@@ -347,11 +374,13 @@ public class MushroomPickupSystem : MonoBehaviour
             return;
         }
 
-        if (currentTarget.TryPick())
+        if (!currentTarget.TryPick())
         {
-            MiniProgramGameDataManager.Instance?.RecordHarvestedMushroom();
+            return;
         }
 
+        MushroomSoupGame.Instance?.RegisterHarvestedMushroom();
+        MiniProgramGameDataManager.Instance?.RecordHarvestedMushroom();
         SetCurrentTarget(null);
     }
 
@@ -474,24 +503,69 @@ public class MushroomPickupSystem : MonoBehaviour
 
         canvasObject.AddComponent<GraphicRaycaster>();
 
+        var dialogObject = new GameObject("HarvestDialog");
+        dialogObject.transform.SetParent(canvasObject.transform, false);
+
+        var dialogRect = dialogObject.AddComponent<RectTransform>();
+        dialogRect.anchorMin = new Vector2(0.5f, 1f);
+        dialogRect.anchorMax = new Vector2(0.5f, 1f);
+        dialogRect.pivot = new Vector2(0f, 1f);
+        dialogRect.anchoredPosition = dialogPosition;
+        dialogRect.sizeDelta = dialogSize;
+
+        promptBackgroundImage = dialogObject.AddComponent<Image>();
+        promptBackgroundImage.type = Image.Type.Simple;
+        promptBackgroundImage.preserveAspect = false;
+        LoadDialogSprite();
+        if (dialogSprite != null)
+        {
+            promptBackgroundImage.sprite = dialogSprite;
+            promptBackgroundImage.color = Color.white;
+        }
+        else
+        {
+            promptBackgroundImage.color = dialogFallbackColor;
+        }
+
+        LoadIconSprite();
+        if (iconSprite != null)
+        {
+            var iconObject = new GameObject("HarvestDialogIcon");
+            iconObject.transform.SetParent(dialogObject.transform, false);
+
+            var iconRect = iconObject.AddComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0f, 1f);
+            iconRect.anchorMax = new Vector2(0f, 1f);
+            iconRect.pivot = new Vector2(0f, 1f);
+            iconRect.anchoredPosition = new Vector2(14f, -10f);
+            iconRect.sizeDelta = new Vector2(88f, 88f);
+
+            var iconImage = iconObject.AddComponent<Image>();
+            iconImage.sprite = iconSprite;
+            iconImage.color = Color.white;
+            iconImage.preserveAspect = true;
+        }
+
         titleText = CreateText(
-            canvasObject.transform,
+            dialogObject.transform,
             "HarvestTitle",
-            new Vector2(40f, -40f),
-            new Vector2(460f, 70f),
+            new Vector2(96f, -24f),
+            new Vector2(dialogSize.x - 148f, 44f),
             titleFontSize,
             FontStyle.Bold,
-            Color.white);
+            new Color(1f, 0.98f, 0.93f, 1f),
+            TextAnchor.MiddleCenter);
         titleText.text = titleLabel;
 
         promptText = CreateText(
-            canvasObject.transform,
+            dialogObject.transform,
             "HarvestPrompt",
-            new Vector2(40f, -100f),
-            new Vector2(1280f, 180f),
+            new Vector2(56f, -86f),
+            new Vector2(dialogSize.x - 112f, dialogSize.y - 116f),
             promptFontSize,
             FontStyle.Bold,
-            promptColor);
+            promptColor,
+            TextAnchor.UpperLeft);
         promptText.text = pickupPrompt;
     }
 
@@ -502,7 +576,7 @@ public class MushroomPickupSystem : MonoBehaviour
             return;
         }
 
-        var visible = currentTarget != null && !ForestStoryIntroOverlay.IsBlockingInput;
+        var visible = !ForestStoryIntroOverlay.IsBlockingInput && (externalPromptVisible || currentTarget != null);
         promptCanvas.enabled = visible;
         if (!visible)
         {
@@ -510,10 +584,82 @@ public class MushroomPickupSystem : MonoBehaviour
         }
 
         titleText.text = titleLabel;
+        if (externalPromptVisible)
+        {
+            promptText.text = externalPromptText;
+            return;
+        }
+
         var gameplayInput = HybridBciGameplayInput.Instance;
         promptText.text = gameplayInput != null && gameplayInput.HasLiveConnection
             ? platformPickupPrompt
             : pickupPrompt;
+    }
+
+    public void ShowGatherIntroPrompt(bool hasEnoughMushrooms)
+    {
+        externalPromptVisible = true;
+        externalPromptText = hasEnoughMushrooms ? gatherReadyPrompt : gatherIntroPrompt;
+        RefreshPrompt();
+    }
+
+    public void HideGatherIntroPrompt()
+    {
+        if (!externalPromptVisible)
+        {
+            return;
+        }
+
+        externalPromptVisible = false;
+        externalPromptText = string.Empty;
+        RefreshPrompt();
+    }
+
+    public bool IsShowingGatherIntroPrompt()
+    {
+        return externalPromptVisible;
+    }
+
+    private void LoadDialogSprite()
+    {
+        if (dialogSprite != null)
+        {
+            return;
+        }
+
+#if UNITY_EDITOR
+        var assets = AssetDatabase.LoadAllAssetRepresentationsAtPath(dialogSpriteSheetPath);
+        for (var i = 0; i < assets.Length; i++)
+        {
+            var sprite = assets[i] as Sprite;
+            if (sprite != null && sprite.name == dialogSpriteName)
+            {
+                dialogSprite = sprite;
+                return;
+            }
+        }
+#endif
+    }
+
+    private void LoadIconSprite()
+    {
+        if (iconSprite != null)
+        {
+            return;
+        }
+
+#if UNITY_EDITOR
+        var assets = AssetDatabase.LoadAllAssetRepresentationsAtPath(iconSpriteSheetPath);
+        for (var i = 0; i < assets.Length; i++)
+        {
+            var sprite = assets[i] as Sprite;
+            if (sprite != null && sprite.name == iconSpriteName)
+            {
+                iconSprite = sprite;
+                return;
+            }
+        }
+#endif
     }
 
     private Text CreateText(
@@ -523,10 +669,11 @@ public class MushroomPickupSystem : MonoBehaviour
         Vector2 size,
         int fontSize,
         FontStyle fontStyle,
-        Color color)
+        Color color,
+        TextAnchor alignment)
     {
         var textObject = new GameObject(name);
-        textObject.transform.SetParent(parent);
+        textObject.transform.SetParent(parent, false);
 
         var rect = textObject.AddComponent<RectTransform>();
         rect.anchorMin = new Vector2(0f, 1f);
@@ -544,7 +691,7 @@ public class MushroomPickupSystem : MonoBehaviour
         text.fontSize = fontSize;
         text.fontStyle = fontStyle;
         text.color = color;
-        text.alignment = TextAnchor.UpperLeft;
+        text.alignment = alignment;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         return text;
