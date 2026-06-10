@@ -1198,6 +1198,8 @@ public class MushroomSoupGame : MonoBehaviour
 
     private void RefreshFishingUI()
     {
+        ApplyFishingHudLayout();
+
         if (fishTitleText != null)
         {
             fishTitleText.text = "捉鱼";
@@ -1232,6 +1234,84 @@ public class MushroomSoupGame : MonoBehaviour
         if (fishCatchSlider != null)
         {
             fishCatchSlider.value = fishGrip;
+        }
+    }
+
+    private void ApplyFishingHudLayout()
+    {
+        if (fishTitleText != null)
+        {
+            var rect = fishTitleText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 210f);
+            rect.sizeDelta = new Vector2(420f, 70f);
+            fishTitleText.fontSize = 42;
+            fishTitleText.fontStyle = FontStyle.Bold;
+            fishTitleText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (fishPromptText != null)
+        {
+            var rect = fishPromptText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 140f);
+            rect.sizeDelta = new Vector2(1180f, 110f);
+            fishPromptText.fontSize = 34;
+            fishPromptText.fontStyle = FontStyle.Bold;
+            fishPromptText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (fishStatusText != null)
+        {
+            var rect = fishStatusText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 72f);
+            rect.sizeDelta = new Vector2(1100f, 72f);
+            fishStatusText.fontSize = 30;
+            fishStatusText.fontStyle = FontStyle.Bold;
+            fishStatusText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (fishCatchButtonText != null)
+        {
+            var rect = fishCatchButtonText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, -2f);
+            rect.sizeDelta = new Vector2(900f, 66f);
+            fishCatchButtonText.fontSize = 34;
+            fishCatchButtonText.fontStyle = FontStyle.Bold;
+            fishCatchButtonText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (fishSliderLabelText != null)
+        {
+            var rect = fishSliderLabelText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, -72f);
+            rect.sizeDelta = new Vector2(240f, 40f);
+            fishSliderLabelText.fontSize = 28;
+            fishSliderLabelText.fontStyle = FontStyle.Bold;
+            fishSliderLabelText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (fishCatchSlider != null)
+        {
+            var rect = fishCatchSlider.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, -118f);
+            rect.sizeDelta = new Vector2(620f, 46f);
         }
     }
 
