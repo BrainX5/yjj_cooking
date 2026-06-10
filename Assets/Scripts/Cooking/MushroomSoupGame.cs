@@ -102,6 +102,7 @@ public class MushroomSoupGame : MonoBehaviour
     [SerializeField] private string soupCompleteIconSpriteName = "UI_SpriteSheet_1";
     [SerializeField] private Color soupCompleteFallbackColor = new Color(0.88f, 0.28f, 0.23f, 0.98f);
     [SerializeField] private Color soupCompleteTextColor = new Color(1f, 0.98f, 0.95f, 1f);
+    [SerializeField] private Color cookingHudHighlightColor = new Color(1f, 0.93f, 0.62f, 1f);
 
     [Header("Cooking Settings")]
     [SerializeField] private float interactionDistance = 4.5f;
@@ -181,6 +182,7 @@ public class MushroomSoupGame : MonoBehaviour
     private Sprite soupCompleteIconSprite;
     private bool isShowingSoupCompletePrompt;
     private bool pendingSoupCompleteTransition;
+    private string currentCompletionPromptMessage = "恭喜你！美味的蘑菇汤煮好了！\n\n按任意键继续";
     private float soupCompletePromptUnlockTime;
     private MiniProgramGameDataManager dataManager;
     private bool sessionCompletionReported;
@@ -657,7 +659,7 @@ public class MushroomSoupGame : MonoBehaviour
             dataManager?.RecordMilestone("soup_complete");
             TintSoup(new Color(0.84f, 0.77f, 0.56f, 1f));
             pendingSoupCompleteTransition = true;
-            ShowSoupCompletePrompt();
+            ShowDishCompletePrompt("恭喜你！美味的蘑菇汤煮好了！\n\n按任意键继续");
             CookingAudioController.Instance?.PlayDishComplete();
         }
     }
@@ -698,6 +700,7 @@ public class MushroomSoupGame : MonoBehaviour
             fishStatusMessage = "煎鱼完成了，今天的晚餐都准备好了。";
             fishStatusMessageTimer = 4f;
             UpdateFriedFishAppearance();
+            ShowDishCompletePrompt("恭喜你！香喷喷的煎鱼做好了！\n\n按任意键继续");
             CookingAudioController.Instance?.PlayDishComplete();
         }
     }
@@ -1128,6 +1131,7 @@ public class MushroomSoupGame : MonoBehaviour
     {
         EnsureSoupPromptOverlay();
         RefreshCookingTitleLayout();
+        ApplyCookingHudLayout();
 
         if (titleText != null)
         {
@@ -1149,12 +1153,14 @@ public class MushroomSoupGame : MonoBehaviour
 
         if (fireValueText != null)
         {
-            fireValueText.text = $"当前火力: {firePower:0.00}";
+            fireValueText.text = $"火力值 {Mathf.RoundToInt((maxFirePower <= 0f ? 0f : firePower / maxFirePower) * 100f)}%";
+            fireValueText.color = cookingHudHighlightColor;
         }
 
         if (progressText != null)
         {
-            progressText.text = $"当前进度: {(cookProgress * 100f):0}%";
+            progressText.text = $"专注力 {GetLiveAttentionDisplay()}";
+            progressText.color = CanUsePlatformInput() ? cookingHudHighlightColor : new Color(0.88f, 0.92f, 0.98f, 1f);
         }
 
         if (mushroomCountText != null)
@@ -1551,14 +1557,17 @@ public class MushroomSoupGame : MonoBehaviour
         soupCompleteText.alignment = TextAnchor.MiddleCenter;
         soupCompleteText.horizontalOverflow = HorizontalWrapMode.Wrap;
         soupCompleteText.verticalOverflow = VerticalWrapMode.Overflow;
-        soupCompleteText.text = "恭喜你！美味的蘑菇汤煮好了！\n\n按任意键继续";
+        soupCompleteText.text = currentCompletionPromptMessage;
 
         soupCompleteCanvas.enabled = false;
     }
 
-    private void ShowSoupCompletePrompt()
+    private void ShowDishCompletePrompt(string message)
     {
         EnsureSoupCompletePrompt();
+        currentCompletionPromptMessage = string.IsNullOrWhiteSpace(message)
+            ? "恭喜你！料理完成了！\n\n按任意键继续"
+            : message;
         isShowingSoupCompletePrompt = true;
         soupCompletePromptUnlockTime = Time.time + 2f;
         RefreshSoupCompletePrompt();
@@ -1572,6 +1581,10 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         soupCompleteCanvas.enabled = isShowingSoupCompletePrompt;
+        if (isShowingSoupCompletePrompt && soupCompleteText != null)
+        {
+            soupCompleteText.text = currentCompletionPromptMessage;
+        }
     }
 
     private void CloseSoupCompletePrompt()
@@ -1611,6 +1624,95 @@ public class MushroomSoupGame : MonoBehaviour
         titleRect.anchoredPosition = cookingTitleDefaultPosition;
         titleRect.sizeDelta = cookingTitleDefaultSize;
         titleText.alignment = TextAnchor.UpperLeft;
+    }
+
+    private void ApplyCookingHudLayout()
+    {
+        if (fireValueText != null)
+        {
+            var rect = fireValueText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 165f);
+            rect.sizeDelta = new Vector2(760f, 80f);
+            fireValueText.fontSize = 42;
+            fireValueText.fontStyle = FontStyle.Bold;
+            fireValueText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (progressText != null)
+        {
+            var rect = progressText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 115f);
+            rect.sizeDelta = new Vector2(700f, 60f);
+            progressText.fontSize = 30;
+            progressText.fontStyle = FontStyle.Bold;
+            progressText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (mushroomCountText != null)
+        {
+            var rect = mushroomCountText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 55f);
+            rect.sizeDelta = new Vector2(860f, 60f);
+            mushroomCountText.fontSize = 26;
+            mushroomCountText.fontStyle = FontStyle.Bold;
+            mushroomCountText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (fireSliderLabelText != null)
+        {
+            var rect = fireSliderLabelText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(-290f, -2f);
+            rect.sizeDelta = new Vector2(180f, 40f);
+            fireSliderLabelText.fontSize = 26;
+            fireSliderLabelText.fontStyle = FontStyle.Bold;
+            fireSliderLabelText.alignment = TextAnchor.MiddleCenter;
+            fireSliderLabelText.color = cookingHudHighlightColor;
+        }
+
+        if (fireSlider != null)
+        {
+            var rect = fireSlider.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(45f, 4f);
+            rect.sizeDelta = new Vector2(520f, 42f);
+        }
+
+        if (progressSliderLabelText != null)
+        {
+            var rect = progressSliderLabelText.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(-290f, -58f);
+            rect.sizeDelta = new Vector2(180f, 40f);
+            progressSliderLabelText.fontSize = 24;
+            progressSliderLabelText.fontStyle = FontStyle.Bold;
+            progressSliderLabelText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (progressSlider != null)
+        {
+            var rect = progressSlider.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(45f, -52f);
+            rect.sizeDelta = new Vector2(520f, 42f);
+        }
     }
 
     private void LoadSoupPromptSprite()
@@ -1714,6 +1816,22 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         return false;
+    }
+
+    private string GetLiveAttentionDisplay()
+    {
+        if (gameplayInput != null && gameplayInput.HasLiveConnection)
+        {
+            return Mathf.RoundToInt(gameplayInput.SmoothedAttention).ToString();
+        }
+
+        var bridge = HybridBciPlatformBridge.Instance;
+        if (bridge != null && bridge.IsConnected && bridge.AttentionValue >= 0)
+        {
+            return bridge.AttentionValue.ToString();
+        }
+
+        return "--";
     }
 
     private string GetFriedFishStatusLine()

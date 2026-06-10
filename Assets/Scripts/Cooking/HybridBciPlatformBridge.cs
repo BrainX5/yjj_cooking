@@ -21,7 +21,7 @@ public class HybridBciPlatformBridge : MonoBehaviour
     [Header("Debug HUD")]
     [SerializeField] private bool showStatusOverlay = true;
     [SerializeField] private Vector2 overlayAnchoredPosition = new Vector2(-35f, -30f);
-    [SerializeField] private Vector2 overlaySize = new Vector2(680f, 170f);
+    [SerializeField] private Vector2 overlaySize = new Vector2(260f, 110f);
 
     public static HybridBciPlatformBridge Instance { get; private set; }
 
@@ -580,8 +580,8 @@ public class HybridBciPlatformBridge : MonoBehaviour
 
         overlayText = textObject.AddComponent<Text>();
         overlayText.font = uiFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-        overlayText.fontSize = 24;
-        overlayText.alignment = TextAnchor.UpperLeft;
+        overlayText.fontSize = 34;
+        overlayText.alignment = TextAnchor.MiddleCenter;
         overlayText.horizontalOverflow = HorizontalWrapMode.Wrap;
         overlayText.verticalOverflow = VerticalWrapMode.Overflow;
         overlayText.color = new Color(0.96f, 0.95f, 0.88f, 1f);
@@ -595,52 +595,9 @@ public class HybridBciPlatformBridge : MonoBehaviour
         }
 
         var builder = new StringBuilder();
-        builder.AppendLine("HybridBCI Platform");
-        builder.AppendLine(ConnectionSummary);
-
-        if (!string.IsNullOrWhiteSpace(LastUserInfo.userName) || !string.IsNullOrWhiteSpace(LastUserInfo.realName))
-        {
-            builder.AppendLine($"User: {GetPreferredUserDisplayName()}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(LastDeviceState.deviceName) || !string.IsNullOrWhiteSpace(LastDeviceState.deviceId))
-        {
-            builder.AppendLine($"Device: {LastDeviceState.deviceName}  Battery: {LastDeviceState.battery}%  Wear: {(LastDeviceState.wear ? "Yes" : "No")}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(LastAlgorithmName))
-        {
-            builder.AppendLine($"Algorithm: {LastAlgorithmName}");
-        }
-
-        if (AttentionValue >= 0)
-        {
-            builder.AppendLine($"Attention: {AttentionValue}");
-        }
-
-        if (LastGyroscope.HasValue)
-        {
-            builder.AppendLine(
-                $"Focus: X {LastGyroscope.focusX:0.0}  Y {LastGyroscope.focusY:0.0}");
-            builder.AppendLine(
-                $"Gyro: X {LastGyroscope.gyroscopeX:0.0}  Y {LastGyroscope.gyroscopeY:0.0}  Z {LastGyroscope.gyroscopeZ:0.0}");
-        }
-
-        var gameplayInput = HybridBciGameplayInput.Instance;
-        if (gameplayInput != null && gameplayInput.HasLiveConnection)
-        {
-            builder.AppendLine(
-                $"GestureY: Delta {gameplayInput.CurrentVerticalGestureDelta:0.0}  Neutral {gameplayInput.NeutralFocusY:0.0}");
-            builder.AppendLine(
-                $"GestureY Thresholds: Peak {gameplayInput.CurrentVerticalPeakThreshold:0.0}  Center {gameplayInput.CurrentVerticalCenterThreshold:0.0}");
-        }
-
-        if (BlinkTriggered && !blinkConsumed)
-        {
-            builder.AppendLine("Blink command detected");
-        }
-
-        overlayText.text = builder.ToString().TrimEnd();
+        builder.AppendLine("注意力值");
+        builder.Append(AttentionValue >= 0 ? AttentionValue.ToString() : "--");
+        overlayText.text = builder.ToString();
     }
 
     private string GetPreferredUserDisplayName()
