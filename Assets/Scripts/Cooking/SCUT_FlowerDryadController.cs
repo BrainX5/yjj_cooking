@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.UI;
 
 public class SCUT_FlowerDryadController : MonoBehaviour
 {
@@ -27,14 +28,24 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     [Header("失重演出等待时间")]
     public float windBlowDuration = 2.0f;
 
-    [Header("🎯 手动把场景里的 3D 圆柱体 RealLaserBeam 拖到这里！")]
+    [Header("🎯 瞄准与吸取配置")]
+    [Tooltip("手动把场景里的 3D 圆柱体 RealLaserBeam 拖到这里")]
     public GameObject realLaserObject;
+    public Image crosshair;
+    [Tooltip("射线检测的最大距离")]
+    public float maxAimDistance = 40f;
+    [Tooltip("吸取蘑菇需要按住 T 的时间")]
+    public float collectRequiredTime = 2.5f;
 
-    private SCUT_WeightlessFloat currentTargetMushroom;
     private float focusTimer = 0f;
     private Animator impAnimator;
     private Renderer[] impRenderers;
     private Transform mainCameraTransform;
+
+    // 严密的单目标控制状态机
+    private SCUT_WeightlessFloat currentTargetMushroom = null;
+    private float tKeyPressTimer = 0f;
+    private bool isLockingTarget = false; // 是否在吸取中锁死当前目标，不准切走
 
     void Awake()
     {
@@ -44,43 +55,182 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
     void Start()
     {
-        mainCameraTransform = Camera.main != null ? Camera.main.transform : GameObject.FindObjectOfType<Camera>()?.transform;
+        mainCameraTransform = Camera.main.transform;
         SetImpVisibility(false);
         if (windParticle != null) windParticle.Stop();
         if (windAudio != null) windAudio.Stop();
-
         if (realLaserObject != null) realLaserObject.SetActive(false);
     }
 
     void Update()
     {
-        if (currentPhase == ImpPhase.Weightless && mainCameraTransform != null)
-        {
-            Vector3 lookPos = mainCameraTransform.position - transform.position;
-            lookPos.y = 0;
-            if (lookPos != Vector3.zero) transform.rotation = Quaternion.LookRotation(lookPos);
-        }
-
         switch (currentPhase)
         {
             case ImpPhase.Appears:
                 HandleImpAppearance();
                 break;
             case ImpPhase.Weightless:
-                HandleFocusTraining();
+                // 只有在没按住T吸取时，才可以自由瞄准和切换目标
+                if (!isLockingTarget)
+                {
+                    HandleLaserAiming();
+                }
+                HandleMushroomCollection();
                 break;
         }
     }
 
-    void SetImpVisibility(bool isVisible)
+    /// <summary>
+    /// 射线物理检测：自由瞄准阶段
+    /// </summary>
+    void HandleLaserAiming()
     {
-        if (flowerDryadObject != null) flowerDryadObject.SetActive(isVisible);
+        if (mainCameraTransform == null) return;
+
+        Ray ray = new Ray(mainCameraTransform.position, mainCameraTransform.forward);
+        RaycastHit hit;
+        SCUT_WeightlessFloat hitMushroom = null;
+
+        if (Physics.Raycast(ray, out hit, maxAimDistance))
+        {
+            hitMushroom = hit.collider.GetComponent<SCUT_WeightlessFloat>();
+        }
+
+        // 切换瞄准目标
+        if (hitMushroom != currentTargetMushroom)
+        {
+            if (currentTargetMushroom != null)
+            {
+                currentTargetMushroom.SetTargeted(false);
+            }
+
+            currentTargetMushroom = hitMushroom;
+
+            if (currentTargetMushroom != null)
+            {
+                currentTargetMushroom.SetTargeted(true); // 只有对准的这一个变大、亮圈
+            }
+        }
+
+        // 动态同步更新激光位置和朝向
+        UpdateLaserBeamTransform();
+    }
+
+    /// <summary>
+    /// 动态改变 3D 激光模型的位置、朝向和拉伸
+    /// </summary>
+    void UpdateLaserBeamTransform()
+    {
+        if (realLaserObject == null) return;
+
+        if (currentTargetMushroom != null)
+        {
+            realLaserObject.SetActive(true);
+            Vector3 startPoint = transform.position; // 激光起点：精灵位置
+            Vector3 endPoint = currentTargetMushroom.transform.position; // 激光终点：蘑菇中心
+
+            float distance = Vector3.Distance(startPoint, endPoint);
+            if (distance < 0.1f || float.IsNaN(distance))
+            {
+                realLaserObject.SetActive(false);
+                return;
+            }
+
+            realLaserObject.transform.position = (startPoint + endPoint) / 2f;
+            Vector3 direction = endPoint - startPoint;
+            if (direction != Vector3.zero)
+            {
+                realLaserObject.transform.LookAt(endPoint);
+            }
+
+            // 动态调节拉伸长度
+            Vector3 localScale = realLaserObject.transform.localScale;
+            localScale.z = distance * 0.5f; 
+            if (!float.IsNaN(localScale.x) && !float.IsNaN(localScale.y) && !float.IsNaN(localScale.z))
+            {
+                realLaserObject.transform.localScale = localScale;
+            }
+        }
         else
         {
-            foreach (Renderer r in impRenderers)
+            realLaserObject.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// 处理按住 T 键 2.5 秒的吸取过程（带唯一锁死机制）
+    /// </summary>
+    void HandleMushroomCollection()
+    {
+        if (currentTargetMushroom == null)
+        {
+            tKeyPressTimer = 0f;
+            isLockingTarget = false;
+            return;
+        }
+
+        if (Input.GetKey(KeyCode.T))
+        {
+            // 一旦按下 T 键，锁死该目标，玩家转头射线滑走也不会切换，确保一次只获取一个
+            isLockingTarget = true;
+
+            tKeyPressTimer += Time.deltaTime;
+            float progress = tKeyPressTimer / collectRequiredTime;
+
+            // 每帧将固定好的相机前方位置传给蘑菇，促使其向镜头移动
+            Vector3 cameraTargetPos = mainCameraTransform.position + mainCameraTransform.forward * 1.2f;
+            currentTargetMushroom.UpdateCollectProgress(progress, cameraTargetPos);
+
+            // 吸取时也要实时把激光连在蘑菇身上
+            UpdateLaserBeamTransform();
+
+            if (tKeyPressTimer >= collectRequiredTime)
             {
-                if (r != null) r.enabled = isVisible;
+                // 2.5秒满，成功捕获消失！
+                currentTargetMushroom.CollectSuccess();
+                currentTargetMushroom = null;
+                tKeyPressTimer = 0f;
+                isLockingTarget = false;
+
+                if (realLaserObject != null) realLaserObject.SetActive(false);
+
+                // 刷新、检查场景里是否还有残存的飞天普通蘑菇
+                CheckAllMushroomsCollected();
             }
+        }
+        else
+        {
+            // 松开 T 键，解锁目标，重置并原路退回
+            if (isLockingTarget)
+            {
+                tKeyPressTimer = 0f;
+                isLockingTarget = false;
+                if (currentTargetMushroom != null)
+                {
+                    currentTargetMushroom.ResetCollectProgress();
+                }
+            }
+        }
+    }
+
+    void CheckAllMushroomsCollected()
+    {
+        SCUT_WeightlessFloat[] remaining = FindObjectsOfType<SCUT_WeightlessFloat>();
+        bool anyLeft = false;
+        foreach (var m in remaining)
+        {
+            if (m.gameObject.activeInHierarchy)
+            {
+                anyLeft = true;
+                break;
+            }
+        }
+
+        if (!anyLeft)
+        {
+            Debug.Log("【通关】所有悬浮蘑菇吸取完毕。");
+            currentPhase = ImpPhase.Recovered;
+            StartCoroutine(WinSequence());
         }
     }
 
@@ -94,17 +244,14 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         }
         currentPhase = ImpPhase.Appears;
         if (impAnimator != null) impAnimator.SetTrigger("Fly");
-
-        if (realLaserObject != null) realLaserObject.SetActive(false);
     }
 
     void HandleImpAppearance()
     {
         if (mainCameraTransform == null) return;
         Vector3 targetStopPoint = mainCameraTransform.position + mainCameraTransform.forward * stopDistanceToCamera;
-
         Vector3 lookPos = mainCameraTransform.position - transform.position;
-        lookPos.y = 0;
+        lookPos.y = 0; 
         if (lookPos != Vector3.zero) transform.rotation = Quaternion.LookRotation(lookPos);
 
         transform.position = Vector3.MoveTowards(transform.position, targetStopPoint, flySpeed * Time.deltaTime);
@@ -113,127 +260,52 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         {
             transform.position = targetStopPoint;
             currentPhase = ImpPhase.Weightless;
-            focusTimer = 0f;
-
             if (impAnimator != null) impAnimator.SetTrigger("Cast");
             if (windParticle != null) windParticle.Play();
             if (windAudio != null && !windAudio.isPlaying) windAudio.Play();
-
             StartCoroutine(BlowWindAndLiftMoshrooms());
-        }
-    }
-
-    void HandleFocusTraining()
-    {
-        if (Input.GetKey(KeyCode.T)) focusScore = 85f;
-        else focusScore = 50f;
-
-        if (currentTargetMushroom != null)
-        {
-            // 🎯【圆柱体核心：无条件强制正向准星算法】
-            if (realLaserObject != null && mainCameraTransform != null)
-            {
-                if (!realLaserObject.activeSelf) realLaserObject.SetActive(true);
-
-                // 1. 物理测距：计算眼睛到当前目标蘑菇的绝对直线距离
-                float distanceToMushroom = Vector3.Distance(mainCameraTransform.position, currentTargetMushroom.transform.position);
-
-                // 2. 轴向对齐：让圆柱体的长轴（旋转）完全复制相机的视角朝向
-                realLaserObject.transform.rotation = mainCameraTransform.rotation;
-                realLaserObject.transform.Rotate(90, 0, 0); // 修正圆柱体网格自带的本地 Y 轴偏转
-
-                // 3. 正向推演中心点：把圆柱体的几何中心，笔直地朝着相机的正前方（Forward）推出去一半的距离
-                realLaserObject.transform.position = mainCameraTransform.position + mainCameraTransform.forward * (distanceToMushroom / 2f);
-
-                // 4. 尺寸压缩与拉伸：横截面变成极细光线形态，长度完美吻合
-                realLaserObject.transform.localScale = new Vector3(0.012f, distanceToMushroom / 2f, 0.012f);
-            }
-
-            if (!currentTargetMushroom.gameObject.activeInHierarchy)
-            {
-                if (realLaserObject != null) realLaserObject.SetActive(false);
-                AcquireNextMushroomTarget();
-            }
-            else
-            {
-                if (focusScore >= targetFocus)
-                {
-                    focusTimer += Time.deltaTime;
-                    if (focusTimer >= requiredDuration)
-                    {
-                        focusTimer = 0f;
-                        if (realLaserObject != null) realLaserObject.SetActive(false);
-                        currentTargetMushroom.ExecuteDrop();
-                    }
-                }
-                else
-                {
-                    focusTimer = Mathf.Max(0f, focusTimer - Time.deltaTime);
-                }
-            }
-        }
-        else
-        {
-            if (realLaserObject != null && realLaserObject.activeSelf) realLaserObject.SetActive(false);
         }
     }
 
     IEnumerator BlowWindAndLiftMoshrooms()
     {
         yield return new WaitForSeconds(windBlowDuration);
-
         if (floatingObjects != null)
         {
             floatingObjects.SetActive(true);
-
-            CameraFlightTracker tracker = GameObject.FindObjectOfType<CameraFlightTracker>();
-            if (tracker != null) tracker.StartCameraTrack(this.transform);
-
+            CameraFlightTracker tracker = Camera.main.gameObject.GetComponent<CameraFlightTracker>();
+            if (tracker == null) tracker = Camera.main.gameObject.AddComponent<CameraFlightTracker>();
+            tracker.StartCameraTrack(this.transform); 
             floatingObjects.BroadcastMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
-
             yield return new WaitForSeconds(0.6f);
-            AcquireNextMushroomTarget();
-
             StartCoroutine(ActivateBCIGameplay());
         }
     }
 
     IEnumerator ActivateBCIGameplay()
     {
-        yield return new WaitForSeconds(2.0f);
-        SCUT_BCIFocusTrainingManager manager = GameObject.FindObjectOfType<SCUT_BCIFocusTrainingManager>();
-        if (manager != null) manager.StartFocusTrainingPhase();
+        yield return new WaitForSeconds(2.0f); 
+        SCUT_BCIFocusTrainingManager manager = FindObjectOfType<SCUT_BCIFocusTrainingManager>();
+        if (manager != null) manager.StartFocusTrainingPhase(); 
     }
 
-    void AcquireNextMushroomTarget()
+    void SetImpVisibility(bool isVisible)
     {
-        SCUT_WeightlessFloat[] allMushrooms = GameObject.FindObjectsOfType<SCUT_WeightlessFloat>();
-        foreach (var msh in allMushrooms)
+        if (flowerDryadObject != null) flowerDryadObject.SetActive(isVisible);
+        else
         {
-            if (msh.gameObject != null && msh.gameObject.activeInHierarchy)
-            {
-                currentTargetMushroom = msh;
-                focusTimer = 0f;
-                return;
-            }
+            foreach (Renderer r in impRenderers) if (r != null) r.enabled = isVisible;
         }
-
-        currentTargetMushroom = null;
-        currentPhase = ImpPhase.Recovered;
-        StartCoroutine(WinSequence());
     }
 
     IEnumerator WinSequence()
     {
         if (impAnimator != null) impAnimator.SetTrigger("Idle");
         if (windParticle != null) windParticle.Stop();
+        if (realLaserObject != null) realLaserObject.SetActive(false);
         SetImpVisibility(false);
         if (windAudio != null) windAudio.Stop();
-        if (realLaserObject != null) realLaserObject.SetActive(false);
-
         yield return new WaitForSeconds(1.0f);
         currentPhase = ImpPhase.Waiting;
     }
-
-    void OnGUI() { }
 }
