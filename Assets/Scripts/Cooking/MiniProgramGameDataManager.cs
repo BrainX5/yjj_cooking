@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.Networking;
+using UnityEngine.UI;
 
 [DefaultExecutionOrder(-90)]
 public class MiniProgramGameDataManager : MonoBehaviour
@@ -28,6 +30,13 @@ public class MiniProgramGameDataManager : MonoBehaviour
     [SerializeField] private bool prettyPrintPayload = true;
     [SerializeField] private bool logPayloadWhenUploadSkipped = true;
 
+    [Header("Debug Testing")]
+    [SerializeField] private bool enableQuickUploadTestShortcut = true;
+    [SerializeField] private KeyCode quickUploadTestShortcut = KeyCode.F8;
+    [SerializeField] private bool quickUploadTestRequiresShift = true;
+    [SerializeField] private bool preferLiveSessionSnapshotForQuickUpload = true;
+    [SerializeField] private bool enableQuickUploadDebugPanel = true;
+
     public static MiniProgramGameDataManager Instance { get; private set; }
 
     public bool HasActiveSession => sessionActive;
@@ -41,7 +50,11 @@ public class MiniProgramGameDataManager : MonoBehaviour
     private readonly Dictionary<string, int> successfulActionsById = new Dictionary<string, int>();
 
     private HybridBciPlatformBridge bridge;
+    private HybridBciGameplayInput gameplayInput;
     private Coroutine uploadCoroutine;
+    private Canvas debugCanvas;
+    private Text debugStatusText;
+    private Text debugHintText;
     private float sessionStartTime;
     private float sampleTimer;
     private float lowAttentionDuration;
@@ -76,6 +89,8 @@ public class MiniProgramGameDataManager : MonoBehaviour
     {
         ResolveBridge();
         SampleAttentionIfNeeded();
+        HandleQuickUploadTestShortcut();
+        RefreshDebugUi();
     }
 
     public void ConfigureSessionDefaults(string gameModule, string recipeName, string configuredChildId = null)
@@ -223,6 +238,9 @@ public class MiniProgramGameDataManager : MonoBehaviour
 
         lastCompletedPayload = BuildUploadEnvelope();
         lastPayloadJson = JsonUtility.ToJson(lastCompletedPayload, prettyPrintPayload);
+        Debug.Log(
+            $"MiniProgram session complete. focusSamples={focusSamples.Count}, avgAttention={lastCompletedPayload.payload.avgAttention}, score={lastCompletedPayload.payload.score}\n{lastPayloadJson}",
+            this);
 
         if (!autoUploadOnSessionComplete || string.IsNullOrWhiteSpace(uploadEndpoint))
         {
@@ -258,6 +276,59 @@ public class MiniProgramGameDataManager : MonoBehaviour
         UploadPayload(lastCompletedPayload);
     }
 
+    [ContextMenu("Mini Program/Upload Quick Test Payload")]
+    public void UploadQuickTestPayload()
+    {
+        if (!Application.isPlaying)
+        {
+            lastUploadStatus = "Quick upload skipped: enter Play mode first";
+            Debug.LogWarning("MiniProgram quick upload skipped because the game is not running.", this);
+            return;
+        }
+
+        var payload = BuildQuickUploadEnvelope(out var payloadSource);
+        if (payload == null)
+        {
+            lastUploadStatus = "Quick upload skipped: payload unavailable";
+            return;
+        }
+
+        lastCompletedPayload = payload;
+        lastPayloadJson = JsonUtility.ToJson(payload, prettyPrintPayload);
+
+        if (string.IsNullOrWhiteSpace(uploadEndpoint))
+        {
+            lastUploadStatus = "Upload skipped: endpoint not configured";
+            Debug.LogWarning(
+                $"MiniProgram quick upload skipped.\nReason: endpoint not configured\nPayload source: {payloadSource}\nPayload:\n{lastPayloadJson}",
+                this);
+            return;
+        }
+
+        Debug.Log(
+            $"MiniProgram quick upload triggered.\nPayload source: {payloadSource}\nEndpoint: {uploadEndpoint}\nPayload:\n{lastPayloadJson}",
+            this);
+        UploadPayload(payload);
+    }
+
+    [ContextMenu("Mini Program/Retry Last Upload")]
+    public void RetryLastUploadFromContextMenu()
+    {
+        RetryLastUpload();
+    }
+
+    [ContextMenu("Mini Program/Log Last Payload Json")]
+    public void LogLastPayloadJson()
+    {
+        if (string.IsNullOrWhiteSpace(lastPayloadJson))
+        {
+            Debug.Log("MiniProgram payload log requested, but there is no payload yet.", this);
+            return;
+        }
+
+        Debug.Log($"MiniProgram last payload json:\n{lastPayloadJson}", this);
+    }
+
     private void ResolveBridge()
     {
         if (bridge != null)
@@ -270,6 +341,297 @@ public class MiniProgramGameDataManager : MonoBehaviour
         {
             bridge = FindObjectOfType<HybridBciPlatformBridge>();
         }
+    }
+
+    private void ResolveGameplayInput()
+    {
+        if (gameplayInput != null)
+        {
+            return;
+        }
+
+        gameplayInput = HybridBciGameplayInput.Instance;
+        if (gameplayInput == null)
+        {
+            gameplayInput = FindObjectOfType<HybridBciGameplayInput>();
+        }
+    }
+
+    private void HandleQuickUploadTestShortcut()
+    {
+        if (!enableQuickUploadTestShortcut || !Input.GetKeyDown(quickUploadTestShortcut))
+        {
+            return;
+        }
+
+        if (quickUploadTestRequiresShift &&
+            !Input.GetKey(KeyCode.LeftShift) &&
+            !Input.GetKey(KeyCode.RightShift))
+        {
+            return;
+        }
+
+        UploadQuickTestPayload();
+    }
+
+    private void RefreshDebugUi()
+    {
+        if (!enableQuickUploadDebugPanel)
+        {
+            if (debugCanvas != null)
+            {
+                debugCanvas.gameObject.SetActive(false);
+            }
+
+            return;
+        }
+
+        EnsureDebugUi();
+        if (debugCanvas == null)
+        {
+            return;
+        }
+
+        if (!debugCanvas.gameObject.activeSelf)
+        {
+            debugCanvas.gameObject.SetActive(true);
+        }
+
+        if (debugStatusText != null)
+        {
+            debugStatusText.text =
+                $"Status: {lastUploadStatus}\n" +
+                $"ChildId: {childId}\n" +
+                $"Collection: {targetCollectionName}";
+            debugStatusText.color = ResolveStatusColor();
+        }
+
+        if (debugHintText != null)
+        {
+            debugHintText.text =
+                $"Shortcut: {FormatQuickUploadShortcut()}\n" +
+                "Press Esc to unlock mouse";
+        }
+    }
+
+    private void EnsureDebugUi()
+    {
+        if (debugCanvas != null)
+        {
+            EnsureEventSystem();
+            return;
+        }
+
+        EnsureEventSystem();
+
+        var canvasObject = new GameObject("MiniProgram Upload Debug UI");
+        canvasObject.transform.SetParent(transform, false);
+
+        debugCanvas = canvasObject.AddComponent<Canvas>();
+        debugCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        debugCanvas.sortingOrder = 5000;
+
+        var scaler = canvasObject.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 1f;
+
+        canvasObject.AddComponent<GraphicRaycaster>();
+
+        var panel = CreateUiObject("Panel", canvasObject.transform);
+        var panelRect = panel.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(1f, 1f);
+        panelRect.anchorMax = new Vector2(1f, 1f);
+        panelRect.pivot = new Vector2(1f, 1f);
+        panelRect.anchoredPosition = new Vector2(-20f, -20f);
+        panelRect.sizeDelta = new Vector2(360f, 180f);
+
+        var panelImage = panel.AddComponent<Image>();
+        panelImage.color = new Color(0.08f, 0.12f, 0.16f, 0.88f);
+
+        CreateLabel(
+            panel.transform,
+            "Title",
+            "Mini Program Upload",
+            new Vector2(18f, -14f),
+            new Vector2(240f, 30f),
+            22,
+            FontStyle.Bold,
+            Color.white);
+
+        debugStatusText = CreateLabel(
+            panel.transform,
+            "Status",
+            string.Empty,
+            new Vector2(18f, -48f),
+            new Vector2(324f, 66f),
+            16,
+            FontStyle.Normal,
+            Color.white);
+
+        CreateButton(
+            panel.transform,
+            "UploadButton",
+            "Quick Upload",
+            new Vector2(18f, -118f),
+            new Vector2(150f, 38f),
+            new Color(0.2f, 0.62f, 0.35f, 0.96f),
+            UploadQuickTestPayload);
+
+        CreateButton(
+            panel.transform,
+            "RetryButton",
+            "Retry Last",
+            new Vector2(186f, -118f),
+            new Vector2(150f, 38f),
+            new Color(0.21f, 0.42f, 0.72f, 0.96f),
+            RetryLastUpload);
+
+        debugHintText = CreateLabel(
+            panel.transform,
+            "Hint",
+            string.Empty,
+            new Vector2(18f, -160f),
+            new Vector2(324f, 30f),
+            14,
+            FontStyle.Normal,
+            new Color(0.78f, 0.87f, 0.97f, 1f));
+    }
+
+    private void EnsureEventSystem()
+    {
+        var eventSystem = FindObjectOfType<EventSystem>();
+        if (eventSystem != null)
+        {
+            return;
+        }
+
+        var eventSystemObject = new GameObject("EventSystem");
+        eventSystemObject.AddComponent<EventSystem>();
+        eventSystemObject.AddComponent<StandaloneInputModule>();
+    }
+
+    private GameObject CreateUiObject(string name, Transform parent)
+    {
+        var target = new GameObject(name);
+        target.transform.SetParent(parent, false);
+        return target;
+    }
+
+    private Text CreateLabel(
+        Transform parent,
+        string name,
+        string value,
+        Vector2 anchoredPosition,
+        Vector2 size,
+        int fontSize,
+        FontStyle fontStyle,
+        Color color)
+    {
+        var textObject = CreateUiObject(name, parent);
+        var rect = textObject.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = size;
+
+        var text = textObject.AddComponent<Text>();
+        text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        text.fontSize = fontSize;
+        text.fontStyle = fontStyle;
+        text.alignment = TextAnchor.UpperLeft;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.color = color;
+        text.text = value;
+
+        return text;
+    }
+
+    private void CreateButton(
+        Transform parent,
+        string name,
+        string label,
+        Vector2 anchoredPosition,
+        Vector2 size,
+        Color backgroundColor,
+        UnityEngine.Events.UnityAction onClick)
+    {
+        var buttonObject = CreateUiObject(name, parent);
+        var rect = buttonObject.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = size;
+
+        var image = buttonObject.AddComponent<Image>();
+        image.color = backgroundColor;
+
+        var button = buttonObject.AddComponent<Button>();
+        button.targetGraphic = image;
+        var colors = button.colors;
+        colors.normalColor = backgroundColor;
+        colors.highlightedColor = backgroundColor * 1.08f;
+        colors.pressedColor = backgroundColor * 0.92f;
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.75f);
+        button.colors = colors;
+        button.onClick.AddListener(onClick);
+
+        var labelText = CreateLabel(
+            buttonObject.transform,
+            "Label",
+            label,
+            new Vector2(size.x * 0.5f, -8f),
+            new Vector2(size.x - 12f, size.y - 8f),
+            17,
+            FontStyle.Bold,
+            Color.white);
+        labelText.alignment = TextAnchor.UpperCenter;
+
+        var labelRect = labelText.rectTransform;
+        labelRect.anchorMin = new Vector2(0.5f, 1f);
+        labelRect.anchorMax = new Vector2(0.5f, 1f);
+        labelRect.pivot = new Vector2(0.5f, 1f);
+    }
+
+    private Color ResolveStatusColor()
+    {
+        if (string.IsNullOrWhiteSpace(lastUploadStatus))
+        {
+            return Color.white;
+        }
+
+        if (lastUploadStatus.IndexOf("succeeded", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return new Color(0.55f, 0.96f, 0.62f, 1f);
+        }
+
+        if (lastUploadStatus.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return new Color(1f, 0.58f, 0.58f, 1f);
+        }
+
+        if (lastUploadStatus.IndexOf("uploading", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return new Color(1f, 0.85f, 0.42f, 1f);
+        }
+
+        if (lastUploadStatus.IndexOf("skipped", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return new Color(0.93f, 0.79f, 0.44f, 1f);
+        }
+
+        return Color.white;
+    }
+
+    private string FormatQuickUploadShortcut()
+    {
+        return quickUploadTestRequiresShift
+            ? $"Shift + {quickUploadTestShortcut}"
+            : quickUploadTestShortcut.ToString();
     }
 
     private void SampleAttentionIfNeeded()
@@ -290,7 +652,18 @@ public class MiniProgramGameDataManager : MonoBehaviour
 
     private void SampleAttention()
     {
-        var focus = bridge != null && bridge.IsConnected ? bridge.AttentionValue : -1;
+        ResolveGameplayInput();
+
+        var focus = -1;
+        if (gameplayInput != null && gameplayInput.HasLiveConnection)
+        {
+            focus = Mathf.RoundToInt(gameplayInput.SmoothedAttention);
+        }
+        else if (bridge != null && bridge.IsConnected)
+        {
+            focus = bridge.AttentionValue;
+        }
+
         if (focus < 0)
         {
             return;
@@ -334,6 +707,72 @@ public class MiniProgramGameDataManager : MonoBehaviour
         };
     }
 
+    private UploadEnvelope BuildQuickUploadEnvelope(out string payloadSource)
+    {
+        if (preferLiveSessionSnapshotForQuickUpload && HasRecordedSessionData())
+        {
+            payloadSource = sessionActive
+                ? "current session snapshot"
+                : "last recorded session snapshot";
+            return BuildUploadEnvelope();
+        }
+
+        payloadSource = "representative test payload";
+        return BuildRepresentativeTestEnvelope();
+    }
+
+    private bool HasRecordedSessionData()
+    {
+        return focusSamples.Count > 0 ||
+               distractDurations.Count > 0 ||
+               completedMilestones.Count > 0 ||
+               totalTrackedActionAttempts > 0 ||
+               successfulActionCount > 0 ||
+               invalidActionCount > 0 ||
+               harvestedMushroomCount > 0 ||
+               fishCaughtCount > 0 ||
+               fishEscapedCount > 0;
+    }
+
+    private UploadEnvelope BuildRepresentativeTestEnvelope()
+    {
+        var payload = new GameLogPayload
+        {
+            timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            childId = childId,
+            durationMinutes = 3.5f,
+            game_module = ResolveGameModuleName(),
+            recipeName = ResolveRecipeName(),
+            score = 2180,
+            avgAttention = 76,
+            distractCount = 1,
+            eegMetrics = new EegMetrics
+            {
+                meanFocus = 76,
+                peakFocus = 92,
+                valFocus = 48,
+                durationRatio60 = 84,
+                durationRatio80 = 46,
+                avgDistractDuration = 5.4f,
+                focusCv = 0.182f
+            },
+            dimensionMetrics = new DimensionMetrics
+            {
+                sustained = 82,
+                selective = 85,
+                executive = 83,
+                impulse = 81
+            }
+        };
+
+        return new UploadEnvelope
+        {
+            envId = wechatCloudEnvId,
+            collectionName = targetCollectionName,
+            payload = payload
+        };
+    }
+
     private GameLogPayload BuildGameLogPayload()
     {
         var meanFocus = ComputeAverageFocus();
@@ -352,8 +791,8 @@ public class MiniProgramGameDataManager : MonoBehaviour
             timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             childId = childId,
             durationMinutes = (float)Math.Round(Math.Max(0f, Time.unscaledTime - sessionStartTime) / 60f, 2),
-            game_module = string.IsNullOrWhiteSpace(activeGameModule) ? defaultGameModule : activeGameModule,
-            recipeName = string.IsNullOrWhiteSpace(activeRecipeName) ? defaultRecipeName : activeRecipeName,
+            game_module = ResolveGameModuleName(),
+            recipeName = ResolveRecipeName(),
             score = ComputeScore(meanFocus, distractCount),
             avgAttention = meanFocus,
             distractCount = distractCount,
@@ -391,6 +830,16 @@ public class MiniProgramGameDataManager : MonoBehaviour
             avgDistractDuration);
 
         return payload;
+    }
+
+    private string ResolveGameModuleName()
+    {
+        return string.IsNullOrWhiteSpace(activeGameModule) ? defaultGameModule : activeGameModule;
+    }
+
+    private string ResolveRecipeName()
+    {
+        return string.IsNullOrWhiteSpace(activeRecipeName) ? defaultRecipeName : activeRecipeName;
     }
 
     private int ComputeAverageFocus()
