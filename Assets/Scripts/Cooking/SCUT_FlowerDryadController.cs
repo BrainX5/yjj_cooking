@@ -37,15 +37,18 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     [Tooltip("吸取蘑菇需要按住 T 的时间")]
     public float collectRequiredTime = 2.5f;
 
+    [Header("🎯 刚性退出机制配置")]
+    public int targetCollectCount = 5; // 目标收集5个
+    private int currentlyCollectedCount = 0; // 核心刚性计数器
+
     private float focusTimer = 0f;
     private Animator impAnimator;
     private Renderer[] impRenderers;
     private Transform mainCameraTransform;
 
-    // 严密的单目标控制状态机
     private SCUT_WeightlessFloat currentTargetMushroom = null;
     private float tKeyPressTimer = 0f;
-    private bool isLockingTarget = false; // 是否在吸取中锁死当前目标，不准切走
+    private bool isLockingTarget = false; 
 
     void Awake()
     {
@@ -70,7 +73,6 @@ public class SCUT_FlowerDryadController : MonoBehaviour
                 HandleImpAppearance();
                 break;
             case ImpPhase.Weightless:
-                // 只有在没按住T吸取时，才可以自由瞄准和切换目标
                 if (!isLockingTarget)
                 {
                     HandleLaserAiming();
@@ -80,9 +82,6 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 射线物理检测：自由瞄准阶段
-    /// </summary>
     void HandleLaserAiming()
     {
         if (mainCameraTransform == null) return;
@@ -93,32 +92,23 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, maxAimDistance))
         {
-            hitMushroom = hit.collider.GetComponent<SCUT_WeightlessFloat>();
+            SCUT_WeightlessFloat scr = hit.collider.GetComponent<SCUT_WeightlessFloat>();
+            if (scr != null && !scr.IsMushroomCollected())
+            {
+                hitMushroom = scr;
+            }
         }
 
-        // 切换瞄准目标
         if (hitMushroom != currentTargetMushroom)
         {
-            if (currentTargetMushroom != null)
-            {
-                currentTargetMushroom.SetTargeted(false);
-            }
-
+            if (currentTargetMushroom != null) currentTargetMushroom.SetTargeted(false);
             currentTargetMushroom = hitMushroom;
-
-            if (currentTargetMushroom != null)
-            {
-                currentTargetMushroom.SetTargeted(true); // 只有对准的这一个变大、亮圈
-            }
+            if (currentTargetMushroom != null) currentTargetMushroom.SetTargeted(true); 
         }
 
-        // 动态同步更新激光位置和朝向
         UpdateLaserBeamTransform();
     }
 
-    /// <summary>
-    /// 动态改变 3D 激光模型的位置、朝向和拉伸
-    /// </summary>
     void UpdateLaserBeamTransform()
     {
         if (realLaserObject == null) return;
@@ -126,8 +116,8 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         if (currentTargetMushroom != null)
         {
             realLaserObject.SetActive(true);
-            Vector3 startPoint = transform.position; // 激光起点：精灵位置
-            Vector3 endPoint = currentTargetMushroom.transform.position; // 激光终点：蘑菇中心
+            Vector3 startPoint = transform.position; 
+            Vector3 endPoint = currentTargetMushroom.transform.position; 
 
             float distance = Vector3.Distance(startPoint, endPoint);
             if (distance < 0.1f || float.IsNaN(distance))
@@ -138,18 +128,11 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
             realLaserObject.transform.position = (startPoint + endPoint) / 2f;
             Vector3 direction = endPoint - startPoint;
-            if (direction != Vector3.zero)
-            {
-                realLaserObject.transform.LookAt(endPoint);
-            }
+            if (direction != Vector3.zero) realLaserObject.transform.LookAt(endPoint);
 
-            // 动态调节拉伸长度
             Vector3 localScale = realLaserObject.transform.localScale;
             localScale.z = distance * 0.5f; 
-            if (!float.IsNaN(localScale.x) && !float.IsNaN(localScale.y) && !float.IsNaN(localScale.z))
-            {
-                realLaserObject.transform.localScale = localScale;
-            }
+            realLaserObject.transform.localScale = localScale;
         }
         else
         {
@@ -157,9 +140,6 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 处理按住 T 键 2.5 秒的吸取过程（带唯一锁死机制）
-    /// </summary>
     void HandleMushroomCollection()
     {
         if (currentTargetMushroom == null)
@@ -171,22 +151,18 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
         if (Input.GetKey(KeyCode.T))
         {
-            // 一旦按下 T 键，锁死该目标，玩家转头射线滑走也不会切换，确保一次只获取一个
             isLockingTarget = true;
-
             tKeyPressTimer += Time.deltaTime;
             float progress = tKeyPressTimer / collectRequiredTime;
 
-            // 每帧将固定好的相机前方位置传给蘑菇，促使其向镜头移动
             Vector3 cameraTargetPos = mainCameraTransform.position + mainCameraTransform.forward * 1.2f;
             currentTargetMushroom.UpdateCollectProgress(progress, cameraTargetPos);
 
-            // 吸取时也要实时把激光连在蘑菇身上
             UpdateLaserBeamTransform();
 
             if (tKeyPressTimer >= collectRequiredTime)
             {
-                // 2.5秒满，成功捕获消失！
+                // 单个蘑菇收集成功
                 currentTargetMushroom.CollectSuccess();
                 currentTargetMushroom = null;
                 tKeyPressTimer = 0f;
@@ -194,13 +170,21 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
                 if (realLaserObject != null) realLaserObject.SetActive(false);
 
-                // 刷新、检查场景里是否还有残存的飞天普通蘑菇
-                CheckAllMushroomsCollected();
+                // 🌟 核心修改：无视任何物理检测，纯数字刚性累加！
+                currentlyCollectedCount++;
+                Debug.Log($"<color=green>【进度播报】成功吸取一个蘑菇！当前背包内总数: {currentlyCollectedCount} / {targetCollectCount}</color>");
+
+                // 刚性判定：一旦等于目标数，立刻强制执行退出机制
+                if (currentlyCollectedCount >= targetCollectCount)
+                {
+                    Debug.Log("<color=red>【核心触发】5个蘑菇已全部集齐！无条件切断状态机，触发 WinSequence 退出流程！</color>");
+                    currentPhase = ImpPhase.Recovered;
+                    StartCoroutine(WinSequence());
+                }
             }
         }
         else
         {
-            // 松开 T 键，解锁目标，重置并原路退回
             if (isLockingTarget)
             {
                 tKeyPressTimer = 0f;
@@ -213,30 +197,17 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         }
     }
 
-    void CheckAllMushroomsCollected()
-    {
-        SCUT_WeightlessFloat[] remaining = FindObjectsOfType<SCUT_WeightlessFloat>();
-        bool anyLeft = false;
-        foreach (var m in remaining)
-        {
-            if (m.gameObject.activeInHierarchy)
-            {
-                anyLeft = true;
-                break;
-            }
-        }
-
-        if (!anyLeft)
-        {
-            Debug.Log("【通关】所有悬浮蘑菇吸取完毕。");
-            currentPhase = ImpPhase.Recovered;
-            StartCoroutine(WinSequence());
-        }
-    }
-
     public void TriggerSpecialMushroomEvent(GameObject specialMushroom)
     {
         if (currentPhase != ImpPhase.Waiting) return;
+
+        // 🌟 核心修改：在视角发生任何改变前，第一帧立刻抓取并锁死相机此时此刻最原始的机位！
+        SCUT_CameraFlightTracker tracker = Camera.main.gameObject.GetComponent<SCUT_CameraFlightTracker>();
+        if (tracker == null) tracker = Camera.main.gameObject.AddComponent<SCUT_CameraFlightTracker>();
+        tracker.SavePlayerInitialTransform(); 
+
+        currentlyCollectedCount = 0; // 每次启动，计数安全清零
+
         SetImpVisibility(true);
         if (specialMushroom != null)
         {
@@ -273,10 +244,13 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         if (floatingObjects != null)
         {
             floatingObjects.SetActive(true);
-            CameraFlightTracker tracker = Camera.main.gameObject.GetComponent<CameraFlightTracker>();
-            if (tracker == null) tracker = Camera.main.gameObject.AddComponent<CameraFlightTracker>();
+            
+            SCUT_CameraFlightTracker tracker = Camera.main.gameObject.GetComponent<SCUT_CameraFlightTracker>();
+            if (tracker == null) tracker = Camera.main.gameObject.AddComponent<SCUT_CameraFlightTracker>();
+            
             tracker.StartCameraTrack(this.transform); 
             floatingObjects.BroadcastMessage("StartFloating", SendMessageOptions.DontRequireReceiver);
+            
             yield return new WaitForSeconds(0.6f);
             StartCoroutine(ActivateBCIGameplay());
         }
@@ -303,9 +277,26 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         if (impAnimator != null) impAnimator.SetTrigger("Idle");
         if (windParticle != null) windParticle.Stop();
         if (realLaserObject != null) realLaserObject.SetActive(false);
-        SetImpVisibility(false);
         if (windAudio != null) windAudio.Stop();
-        yield return new WaitForSeconds(1.0f);
+
+        Debug.Log("【退出流程进行中】1. 命令场景中剩余未收集的悬浮装饰物平滑落回地面原位...");
+        if (floatingObjects != null)
+        {
+            floatingObjects.BroadcastMessage("LandBackToGround", SendMessageOptions.DontRequireReceiver);
+        }
+
+        Debug.Log("【退出流程进行中】2. 呼叫相机脚本，执行机位平滑还原归位...");
+        SCUT_CameraFlightTracker tracker = Camera.main.gameObject.GetComponent<SCUT_CameraFlightTracker>();
+        if (tracker != null)
+        {
+            tracker.ResetCameraTrack(); // 让相机平滑返回到最开始记录的原始视角
+        }
+
+        yield return new WaitForSeconds(1.5f);
+
+        SetImpVisibility(false);
+        
+        Debug.Log("<color=cyan>【退出流程结束】3. 状态全面重置完毕，重回 Waiting 状态，等待下一次特殊蘑菇触发。</color>");
         currentPhase = ImpPhase.Waiting;
     }
 }
