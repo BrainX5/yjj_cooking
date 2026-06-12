@@ -8,12 +8,16 @@ public class SCUT_WeightlessFloat : MonoBehaviour
     public int totalMushroomCount = 5;
 
     [Header("📐 矩阵间距参数")]
-    public float mushroomSpacing = 1.25f; 
+    public float mushroomSpacing = 1.6f; // 💡 建议从 1.25 稍微调大到 1.6，拉开基础左右间距
     public float distanceInFrontOfImp = 5.2f;
-    public float doubleRowDepth = 0.85f;
+    public float doubleRowDepth = 1.2f;    // 💡 建议从 0.85 稍微调大到 1.2，拉开前后排纵深
     public float heightOffsetFromImp = 2.4f;
     public float heightWaveAmplitude = 0.45f;
     public float flyTime = 1.8f;
+
+    [Header("🎲 随机防遮挡微调")]
+    [Tooltip("在基础阵列上，每个蘑菇在X(左右)、Y(上下)、Z(前后)方向的最大随机偏移。既能错开防遮挡，又不会太散。")]
+    public Vector3 positionJitter = new Vector3(0.4f, 0.3f, 0.5f); // 💡 默认推荐值
 
     [Header("空中无规则微幅浮动动效")]
     public float floatAmplitude = 0.05f;
@@ -78,11 +82,24 @@ public class SCUT_WeightlessFloat : MonoBehaviour
                 localY += heightWaveAmplitude;  
             }
 
-            targetFloatPos = imp.transform.position + impForward * localZ + impRight * localX + Vector3.up * localY;
+            // 1. 先计算出原本固定矩阵的基础目标点
+            Vector3 baseFloatPos = imp.transform.position + impForward * localZ + impRight * localX + Vector3.up * localY;
+
+            // 2. ✨ 新增：生成单独的 3D 空间随机扰动偏移量
+            Vector3 randomOffset = new Vector3(
+                Random.Range(-positionJitter.x, positionJitter.x),
+                Random.Range(-positionJitter.y, positionJitter.y),
+                Random.Range(-positionJitter.z, positionJitter.z)
+            );
+
+            // 3. 将随机位移叠加上去，作为最终悬浮中心点
+            targetFloatPos = baseFloatPos + randomOffset;
         }
         else
         {
             targetFloatPos = startPos + Vector3.up * 5f;
+            // 兜底逻辑也加上微量随机
+            targetFloatPos += new Vector3(Random.Range(-0.5f, 0.5f), 0, Random.Range(-0.5f, 0.5f));
         }
 
         StopAllCoroutines();
@@ -115,6 +132,7 @@ public class SCUT_WeightlessFloat : MonoBehaviour
     {
         if (isFloatingActive && !isBeingCollected && !isDeadCollected)
         {
+            // 这里的呼吸起伏动效会基于已经随过机的新 targetFloatPos 正常运作
             float yOffset = Mathf.Sin(Time.time * floatSpeed + floatSeed) * floatAmplitude;
             transform.position = targetFloatPos + new Vector3(0, yOffset, 0);
         }
