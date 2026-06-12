@@ -57,6 +57,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [Header("HybridBCI Platform")]
     [SerializeField] private bool enableHybridBciPlatformBridge = true;
 
+    [Header("Cloud Logging")]
+    [SerializeField] private bool enableCloudLogging = true;
+    [SerializeField] private string cloudApiUrl = "https://cloud1-d9gz2tmfub107d0ff.service.tcloudbase.com/submitGameLog";
+    [SerializeField] private string testUserOpenid = "test_user";
+
     private Font uiFont;
 
     private void Start()
@@ -92,6 +97,11 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         if (enableHybridBciPlatformBridge)
         {
             EnsureHybridBciPlatformBridge();
+        }
+
+        if (enableCloudLogging)
+        {
+            EnsureCloudLogging();
         }
     }
 
@@ -697,6 +707,27 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 
         new GameObject("HybridBciGameplayInput").AddComponent<HybridBciGameplayInput>();
+    }
+
+    private void EnsureCloudLogging()
+    {
+        // GameLogSender: HTTP 发送脚本
+        GameLogSender logSender = FindObjectOfType<GameLogSender>();
+        if (logSender == null)
+        {
+            var senderGo = new GameObject("GameLogSender");
+            logSender = senderGo.AddComponent<GameLogSender>();
+        }
+        logSender.apiUrl = cloudApiUrl;
+        logSender.userOpenid = testUserOpenid;
+
+        // GameplayMetricsTracker: 自动追踪指标 + 提交
+        if (FindObjectOfType<GameplayMetricsTracker>() == null)
+        {
+            var trackerGo = new GameObject("GameplayMetricsTracker");
+            var tracker = trackerGo.AddComponent<GameplayMetricsTracker>();
+            tracker.logSender = logSender;
+        }
     }
 
     private void EnsureCookingAudioController()
