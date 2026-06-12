@@ -172,7 +172,7 @@ public class SCUT_WeightlessFloat : MonoBehaviour
     // 🌟 落地还原机制
     public void LandBackToGround()
     {
-        if (isDeadCollected) return; // 已经被吸走吃掉的不再回弹落地
+        if (isDeadCollected) return; 
         isFloatingActive = false;
         isBeingCollected = false;
         isTargeted = false;

@@ -76,15 +76,15 @@ public class SCUT_FlowerDryadController : MonoBehaviour
             case ImpPhase.Weightless:
                 if (!isLockingTarget)
                 {
-                    HandleLaserAiming();
+                    HandleLaserAiming(false); // 正常每帧进行带阈值的过滤筛选
                 }
                 HandleMushroomCollection();
                 break;
         }
     }
 
-    // 🌟 核心改善：基于玩家视口像素间距的全新“精确视觉匹配”瞄准
-    void HandleLaserAiming()
+    // 🌟 核心改良：支持重载机制，引入粘性保护区以及无缝强制吸附
+    void HandleLaserAiming(bool ignoreRadius)
     {
         if (mainCameraTransform == null || Camera.main == null) return;
 
@@ -93,21 +93,14 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         
         if (crosshair != null)
         {
-            // 如果你的 UI 准星可能由于分辨率拉伸不在正中心，通过此方法动态获取其绝对屏幕坐标
             cursorScreenPos = RectTransformUtility.WorldToScreenPoint(null, crosshair.rectTransform.position);
         }
-
-        // 💡 备用提示：如果你的蓝色光标后续改成了【随鼠标自由移动】而不是锁死在屏幕中央，
-        // 请直接解开下面这一行的注释：
-        // cursorScreenPos = Input.mousePosition;
 
         // 2. 遍历查找距离该光标最近的有效蘑菇
         SCUT_WeightlessFloat[] allMushrooms = FindObjectsOfType<SCUT_WeightlessFloat>();
         SCUT_WeightlessFloat bestMushroom = null;
         
         float minScreenDistance = float.MaxValue;
-        
-        // 阈值控制：只有当光标距离蘑菇在 180 像素以内时才产生磁性吸附瞄准，防止隔着十万八千里误触
         float maxSelectRadiusPixels = 180f; 
 
         foreach (var msh in allMushrooms)
@@ -115,20 +108,27 @@ public class SCUT_FlowerDryadController : MonoBehaviour
             if (msh == null || msh.IsMushroomCollected() || !msh.gameObject.activeInHierarchy) 
                 continue;
 
-            // 检查 3D 真实世界距离，太远则不予检测
+            // 检查 3D 真实世界距离
             float worldDist = Vector3.Distance(mainCameraTransform.position, msh.transform.position);
             if (worldDist > maxAimDistance) continue;
 
-            // 核心魔法：将蘑菇的世界 3D 坐标，计算投影为 2D 屏幕像素坐标
+            // 将蘑菇的世界 3D 坐标，计算投影为 2D 屏幕像素坐标
             Vector3 screenPoint = Camera.main.WorldToScreenPoint(msh.transform.position);
 
-            // 确保蘑菇在相机镜头的前方（防止误锁身后的物体）
+            // 确保蘑菇在相机镜头的前方
             if (screenPoint.z > 0)
             {
                 // 计算当前蘑菇在屏幕上与蓝色光标的纯视觉像素距离
                 float pixelDist = Vector2.Distance(cursorScreenPos, new Vector2(screenPoint.x, screenPoint.y));
                 
-                if (pixelDist < minScreenDistance && pixelDist < maxSelectRadiusPixels)
+                // 💡 智能改进逻辑：
+                // 情况A：如果这个蘑菇是上一帧就已经锁定的目标，将其判定范围放大2.5倍（粘性区域），防止视角微调导致激光闪烁抖动
+                // 情况B：如果 ignoreRadius 为 true（刚收完一个），则彻底解开半径限制，强制捕获屏幕内仅存的最佳下一目标
+                float allowedRadius = maxSelectRadiusPixels;
+                if (msh == currentTargetMushroom) allowedRadius = maxSelectRadiusPixels * 2.5f;
+                if (ignoreRadius) allowedRadius = float.MaxValue;
+
+                if (pixelDist < minScreenDistance && pixelDist < allowedRadius)
                 {
                     minScreenDistance = pixelDist;
                     bestMushroom = msh;
@@ -136,7 +136,7 @@ public class SCUT_FlowerDryadController : MonoBehaviour
             }
         }
 
-        // 3. 产生刚性状态替换
+        // 3. 产生状态替换
         if (bestMushroom != currentTargetMushroom)
         {
             if (currentTargetMushroom != null) currentTargetMushroom.SetTargeted(false);
@@ -200,12 +200,16 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
             if (tKeyPressTimer >= collectRequiredTime)
             {
-                currentTargetMushroom.CollectSuccess();
+                // 成功捕获目标
+                SCUT_WeightlessFloat completedMushroom = currentTargetMushroom;
+                completedMushroom.CollectSuccess();
+                
+                // 清空并解除原目标绑定
                 currentTargetMushroom = null;
                 tKeyPressTimer = 0f;
                 isLockingTarget = false;
 
-                if (realLaserObject != null) realLaserObject.SetActive(false);
+                // 💡 修复关键：取消了强行SetActive(false)这一步，让瞄准接力算法去决定生死
 
                 currentlyCollectedCount++;
                 Debug.Log($"<color=green>【进度播报】成功吸取一个蘑菇！当前背包内总数: {currentlyCollectedCount} / {targetCollectCount}</color>");
@@ -215,6 +219,11 @@ public class SCUT_FlowerDryadController : MonoBehaviour
                     Debug.Log("<color=red>【核心触发】5个蘑菇已全部集齐！无条件切断状态机，触发 WinSequence 退出流程！</color>");
                     currentPhase = ImpPhase.Recovered;
                     StartCoroutine(WinSequence());
+                }
+                else
+                {
+                    // 💡 修复关键：在当前帧内立即、强行无视半径限制寻找下一个可用蘑菇，使激光直接“弹跳”连连看，告别黑屏消失感
+                    HandleLaserAiming(true);
                 }
             }
         }
