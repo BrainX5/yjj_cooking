@@ -1,0 +1,14 @@
+<view class="welcome-container">
+  <view class="header">
+    <view class="logo-circle">🍄</view>
+    <text class="app-name">森厨小当家</text>
+    <text class="slogan">BrainX · 守护每一份专注</text>
+  </view>
+
+  <view class="footer">
+    <button class="login-btn" bindtap="handleLogin">
+      微信一键授权进入
+    </button>
+    <text class="protocol">进入即代表同意《用户康复协议》</text>
+  </view>
+</view>

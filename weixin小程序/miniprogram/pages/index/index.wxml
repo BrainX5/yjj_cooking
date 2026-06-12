@@ -1,0 +1,112 @@
+<scroll-view class="capsule-page" scroll-y="true" wx:if="{{!loading}}">
+
+  <!-- ========== 顶部：日期 + 胶囊标题 ========== -->
+  <view class="capsule-header">
+    <view class="date-badge">
+      <text class="date-icon">⏳</text>
+      <text class="date-text">{{todayDate}}</text>
+    </view>
+    <view class="title-row">
+      <text class="capsule-title">🕰️ 时间胶囊</text>
+      <text class="sync-hint">同步于 {{syncTime}}</text>
+    </view>
+  </view>
+
+  <!-- ========== 今日专注力冒险战报 ========== -->
+  <view class="battle-card status-{{trainLevel}}">
+    <view class="battle-glow"></view>
+    <view class="battle-header">
+      <text class="battle-star">✦</text>
+      <text class="battle-label">今日专注力冒险战报</text>
+    </view>
+    <text class="battle-title">{{trainLevelText}}</text>
+    <text class="battle-desc">{{progressText}}</text>
+
+    <!-- 小火车进度条 -->
+    <view class="railway">
+      <view class="rail-track">
+        <view class="rail-fill" style="width: {{todayFocus}}%;"></view>
+      </view>
+      <view class="train-marker" style="left: {{todayFocus}}%;">
+        <text class="train-emoji">🚂</text>
+        <view class="train-bubble">{{todayFocus}}分</view>
+      </view>
+    </view>
+    <view class="rail-labels">
+      <text>起点</text>
+      <text>完美专注</text>
+    </view>
+  </view>
+
+  <!-- ========== 当前游戏进度 ========== -->
+  <view class="game-card">
+    <view class="game-header">
+      <text class="game-icon">{{gameIcon}}</text>
+      <view class="game-info">
+        <text class="game-label">正在挑战</text>
+        <text class="game-name">{{currentGame}}</text>
+      </view>
+      <view class="game-badge">{{gameCount}}局</view>
+    </view>
+
+    <!-- 三个关卡进度 -->
+    <view class="level-rows">
+      <view class="level-row">
+        <view class="level-icon-wrap camp-bg">🥕</view>
+        <view class="level-info">
+          <text class="level-name">食材准备营</text>
+          <view class="level-bar-wrap">
+            <view class="level-bar" style="width: {{levelProgress.camp}}%;"></view>
+          </view>
+        </view>
+        <text class="level-pct">{{levelProgress.camp}}%</text>
+      </view>
+      <view class="level-row">
+        <view class="level-icon-wrap room-bg">🥩</view>
+        <view class="level-info">
+          <text class="level-name">失重备菜室</text>
+          <view class="level-bar-wrap">
+            <view class="level-bar" style="width: {{levelProgress.room}}%;"></view>
+          </view>
+        </view>
+        <text class="level-pct">{{levelProgress.room}}%</text>
+      </view>
+      <view class="level-row">
+        <view class="level-icon-wrap kitchen-bg">🍳</view>
+        <view class="level-info">
+          <text class="level-name">林间小厨房</text>
+          <view class="level-bar-wrap">
+            <view class="level-bar" style="width: {{levelProgress.kitchen}}%;"></view>
+          </view>
+        </view>
+        <text class="level-pct">{{levelProgress.kitchen}}%</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ========== 今日数据小结 ========== -->
+  <view class="stats-row">
+    <view class="stat-box">
+      <text class="stat-icon">⏱️</text>
+      <text class="stat-num">{{todayDuration}}</text>
+      <text class="stat-unit">分钟</text>
+    </view>
+    <view class="stat-box">
+      <text class="stat-icon">⚡</text>
+      <text class="stat-num">{{todayPeak}}</text>
+      <text class="stat-unit">峰值分</text>
+    </view>
+    <view class="stat-box">
+      <text class="stat-icon">🛡️</text>
+      <text class="stat-num">{{todayDistract}}</text>
+      <text class="stat-unit">次走神</text>
+    </view>
+  </view>
+
+</scroll-view>
+
+<!-- 加载态 -->
+<view class="loading-shell" wx:else>
+  <view class="capsule-loader"></view>
+  <text class="loading-text">时间胶囊开启中...</text>
+</view>

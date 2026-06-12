@@ -1,0 +1,9 @@
+{
+  "name": "submitGameLog",
+  "version": "1.0.0",
+  "description": "接收游戏训练日志并写入云数据库",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

@@ -1,0 +1,349 @@
+<scroll-view class="container" scroll-y="true" wx:if="{{!loading}}">
+
+<!-- 顶部儿童信息与角色切换卡片 -->
+<view class="premium-header-card">
+  <view class="child-profile">
+    <view class="avatar-wrapper">
+      <text class="avatar-emoji">🧒</text>
+      <view class="pulse-ring"></view>
+    </view>
+    <view class="profile-info">
+      <view class="name-line">
+        <text class="child-name">{{childInfo.name}}</text>
+        <text class="age-badge">{{childInfo.age}}岁</text>
+      </view>
+      <text class="stage-text">临床干预阶段：<text class="highlight">{{rehabPlan.currentStage}}</text></text>
+    </view>
+  </view>
+  <view class="role-switcher {{userRole}}" bindtap="toggleRole">
+    <text class="role-icon">{{userRole === 'doctor' ? '🩺' : '🏡'}}</text>
+    <text>{{userRole === 'doctor' ? '医生专业版' : '家长守护版'}}</text>
+  </view>
+</view>
+
+<!-- ==================== 家长端开始 ==================== -->
+<block wx:if="{{userRole === 'parent'}}">
+  
+  <!-- 核心成长数据大卡片 -->
+  <view class="growth-core-card">
+    <view class="card-title-heavy">📈 本周核心成长数据</view>
+    
+    <!-- 1. 总训练时长 -->
+    <view class="growth-item-row">
+      <view class="item-meta">
+        <text class="item-icon">⏱️</text>
+        <view class="item-info">
+          <text class="item-label">总训练时长</text>
+          <text class="item-desc">目标：每周 ≥ 20分钟</text>
+        </view>
+        <text class="item-value-large">{{weeklyMetrics.totalDuration}}<text class="item-unit">min</text></text>
+      </view>
+      <view class="growth-progress-wrapper">
+        <view class="growth-progress-bar" style="width: {{weeklyMetrics.totalDuration >= 20 ? 100 : (weeklyMetrics.totalDuration / 20) * 100}}%;"></view>
+      </view>
+    </view>
+
+    <!-- 2. 平均专注力得分 -->
+    <view class="growth-item-row">
+      <view class="item-meta">
+        <text class="item-icon">🎯</text>
+        <view class="item-info">
+          <text class="item-label">平均专注力得分</text>
+          <text class="item-desc">对比上周：<text class="{{weeklyMetrics.focusTrend >= 0 ? 'trend-up' : 'trend-down'}}">{{weeklyMetrics.focusTrendText}}</text></text>
+        </view>
+        <text class="item-value-large">{{weeklyMetrics.avgFocusScore}}<text class="item-unit">分</text></text>
+      </view>
+      <view class="growth-progress-wrapper">
+        <view class="growth-progress-bar" style="width: {{weeklyMetrics.avgFocusScore}}%;"></view>
+      </view>
+    </view>
+
+    <!-- 3. 最高专注力峰值 -->
+    <view class="growth-item-row">
+      <view class="item-meta">
+        <text class="item-icon">⚡</text>
+        <view class="item-info">
+          <text class="item-label">最高专注力峰值</text>
+          <text class="item-desc">出现在：{{weeklyMetrics.peakLevelName}}</text>
+        </view>
+        <text class="item-value-large">{{weeklyMetrics.peakFocusScore}}<text class="item-unit">分</text></text>
+      </view>
+      <view class="growth-progress-wrapper">
+        <view class="growth-progress-bar bg-purple" style="width: {{weeklyMetrics.peakFocusScore}}%;"></view>
+      </view>
+    </view>
+
+    <!-- 4. 平均走神次数 -->
+    <view class="growth-item-row">
+      <view class="item-meta">
+        <text class="item-icon">🛡️</text>
+        <view class="item-info">
+          <text class="item-label">平均走神次数</text>
+          <text class="item-desc">对比上周：{{weeklyMetrics.distractTrendText}}</text>
+        </view>
+        <text class="item-value-large">{{weeklyMetrics.avgDistractCount}}<text class="item-unit">次/局</text></text>
+      </view>
+    </view>
+
+    <!-- 5. 专注稳定率 -->
+    <view class="growth-item-row">
+      <view class="item-meta">
+        <text class="item-icon">💎</text>
+        <view class="item-info">
+          <text class="item-label">专注稳定率</text>
+          <text class="item-desc">专注 ≥ 60分的时间占比</text>
+        </view>
+        <text class="item-value-large">{{weeklyMetrics.stabilityRatio}}<text class="item-unit">%</text></text>
+      </view>
+      <view class="growth-progress-wrapper">
+        <view class="growth-progress-bar bg-green" style="width: {{weeklyMetrics.stabilityRatio}}%;"></view>
+      </view>
+    </view>
+
+    <!-- 6. 关卡完成率 -->
+    <view class="growth-item-row no-border">
+      <view class="item-meta">
+        <text class="item-icon">🗺️</text>
+        <view class="item-info">
+          <text class="item-label">关卡完成率</text>
+          <text class="item-desc">食材营 {{weeklyMetrics.levelProgress.camp}}% | 失重室 {{weeklyMetrics.levelProgress.room}}% | 小厨房 {{weeklyMetrics.levelProgress.kitchen}}%</text>
+        </view>
+      </view>
+      <view class="multi-progress-line">
+        <view class="mini-progress"><view class="fill" style="width: {{weeklyMetrics.levelProgress.camp}}%;"></view></view>
+        <view class="mini-progress"><view class="fill" style="width: {{weeklyMetrics.levelProgress.room}}%;"></view></view>
+        <view class="mini-progress"><view class="fill" style="width: {{weeklyMetrics.levelProgress.kitchen}}%;"></view></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 家长端动态图表卡片 -->
+  <view class="chart-card">
+    <view class="card-title-heavy">📊 本周专注力趋势与走神对比</view>
+    
+    <view class="parent-chart-container">
+      <!-- ec="{{ecParent}}" lazyLoad=false，组件自动初始化 -->
+      <ec-canvas
+        id="parentTrendChart"
+        canvas-id="mychart-parent-trend"
+        ec="{{ecParent}}"
+        bind:init="onInitParentChart">
+      </ec-canvas>
+    </view>
+  </view>
+
+  <!-- 成长亮点 -->
+  <view class="bright-spots-card">
+    <view class="card-title-heavy">✨ 孩子的成长亮点</view>
+    <view class="spot-list">
+      <block wx:for="{{childHighlights}}" wx:key="index">
+        <view class="spot-item">
+          <text class="spot-emoji">{{item.emoji}}</text>
+          <text class="spot-text">{{item.text}}</text>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 纯 CSS 认知评估柱状图（保留作为直观补充） -->
+  <view class="chart-card">
+    <view class="card-title-heavy">📊 认知能力分布</view>
+    <view class="pure-css-chart">
+      <view class="chart-axis-y">
+        <text>优良</text><text>良好</text><text>需加强</text>
+      </view>
+      <view class="bars-container">
+        <view class="bar-item"><view class="bar-fill" style="height: {{dimensionMetrics.sustained}}%;"></view><text class="bar-t">持续注意</text></view>
+        <view class="bar-item"><view class="bar-fill" style="height: {{dimensionMetrics.selective}}%;"></view><text class="bar-t">选择注意</text></view>
+        <view class="bar-item"><view class="bar-fill warning" style="height: {{dimensionMetrics.executive}}%;"></view><text class="bar-t">执行功能</text></view>
+        <view class="bar-item"><view class="bar-fill" style="height: {{dimensionMetrics.impulse}}%;"></view><text class="bar-t">冲动控制</text></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 主治医嘱同步 -->
+  <view class="aesthetic-doctor-card">
+    <view class="doc-header">
+      <view class="doc-badge">👩‍⚕️ 医生评语</view>
+      <text class="doc-timestamp">{{doctorComment.updateTime}}</text>
+    </view>
+    <view class="doc-speech-bubble">
+      <text class="quote-mark">“</text>
+      <text class="bubble-text">{{doctorComment.content}}</text>
+    </view>
+    <view class="doc-signature">—— 脑功能康复科：{{doctorComment.doctorName}} 医师</view>
+  </view>
+
+  <!-- 居家小任务 -->
+  <view class="aesthetic-doctor-card task-card">
+    <view class="card-title-heavy">🏡 医生建议的居家小任务</view>
+    <view class="task-list">
+      <block wx:for="{{homeTasks}}" wx:key="id">
+        <view class="task-item">
+          <view class="task-checkbox-mock"></view>
+          <view class="task-content">
+            <text class="task-title">{{item.title}}</text>
+            <text class="task-desc">{{item.desc}}</text>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 温柔小提醒 -->
+  <view class="care-gradient-card">
+    <view class="care-title">☕ 温馨提示</view>
+    <text class="care-body">{{parentReport.parentTips}}</text>
+  </view>
+
+</block>
+<!-- ==================== 家长端结束 ==================== -->
+
+
+<!-- ==================== 医生端开始 ==================== -->
+<block wx:if="{{userRole === 'doctor'}}">
+  
+  <view class="doctor-panel-card">
+    <view class="card-title-heavy">🧠 专注力指标</view>
+    <view class="medical-data-row">
+      <view class="med-metric-box">
+        <text class="med-label">平均专注力值 (M)</text>
+        <text class="med-num-heavy">{{doctorReport.eegMetrics.meanFocus}}分</text>
+      </view>
+      <view class="med-metric-box">
+        <text class="med-label">专注力峰值/谷值</text>
+        <text class="med-num-heavy" style="font-size: 34rpx; margin: 22rpx 0;">Max:{{doctorReport.eegMetrics.peakFocus}} / Min:{{doctorReport.eegMetrics.valFocus}}</text>
+      </view>
+    </view>
+    <view class="medical-data-row" style="margin-top: 0;">
+      <view class="med-metric-box">
+        <text class="med-label">专注时长占比</text>
+        <text class="med-num-heavy">{{doctorReport.eegMetrics.durationRatio60}}%</text>
+      </view>
+      <view class="med-metric-box">
+        <text class="med-label">高度专注占比 (≥80分)</text>
+        <text class="med-num-heavy">{{doctorReport.eegMetrics.durationRatio80}}%</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="doctor-panel-card">
+    <view class="card-title-heavy">📉 注意力稳定性</view>
+    <view class="medical-data-row">
+      <view class="med-metric-box">
+        <text class="med-label">平均走神频次 / 走神平均时长</text>
+        <text class="med-num-heavy" style="font-size: 36rpx;">{{doctorReport.distractCount}}次/局 · {{doctorReport.eegMetrics.avgDistractDuration}}秒</text>
+      </view>
+      <view class="med-metric-box">
+        <text class="med-label">注意力波动系数 (CV)</text>
+        <text class="med-num-heavy {{doctorReport.eegMetrics.focusCv > 0.3 ? 'alert-red' : ''}}">{{doctorReport.eegMetrics.focusCv}}</text>
+        <view class="med-status-indicator {{doctorReport.eegMetrics.focusCv > 0.3 ? 'bad' : 'normal'}}">数值越低越稳定</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="doctor-panel-card">
+    <view class="card-title-heavy">📋 训练分维度评估</view>
+    <view class="custom-table" style="margin-top: 24rpx;">
+      <view class="table-tr table-th">
+        <view class="table-td flex-2">训练维度</view>
+        <view class="table-td">得分</view>
+        <view class="table-td">等级</view>
+        <view class="table-td">改善趋势</view>
+      </view>
+      <view class="table-tr">
+        <view class="table-td flex-2 font-bold">持续注意力</view>
+        <view class="table-td">{{dimensionMetrics.sustained}}</view>
+        <view class="table-td"><text class="status-text green">良</text></view>
+        <view class="table-td text-trend">↑</view>
+      </view>
+      <view class="table-tr">
+        <view class="table-td flex-2 font-bold">选择性注意力</view>
+        <view class="table-td">{{dimensionMetrics.selective}}</view>
+        <view class="table-td"><text class="status-text green">良</text></view>
+        <view class="table-td text-trend">→</view>
+      </view>
+      <view class="table-tr">
+        <view class="table-td flex-2 font-bold">执行功能</view>
+        <view class="table-td">{{dimensionMetrics.executive}}</view>
+        <view class="table-td"><text class="status-text orange">中</text></view>
+        <view class="table-td text-trend alert-red">↓</view>
+      </view>
+      <view class="table-tr">
+        <view class="table-td flex-2 font-bold">冲动控制</view>
+        <view class="table-td">{{dimensionMetrics.impulse}}</view>
+        <view class="table-td"><text class="status-text green">良</text></view>
+        <view class="table-td text-trend">↑</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="doctor-panel-card">
+    <view class="card-title-heavy">🎯 关卡能力分布</view>
+    <view class="level-distribution-list">
+      <view class="level-item">
+        <text class="level-name">食材准备营</text>
+        <text class="level-score">完成率: <text class="bold">90%</text> | 平均专注: <text class="bold">76分</text></text>
+      </view>
+      <view class="level-item">
+        <text class="level-name">失重备菜室 </text>
+        <text class="level-score">完成率: <text class="bold">65%</text> | 平均专注: <text class="bold">55分</text></text>
+      </view>
+      <view class="level-item">
+        <text class="level-name">林间小厨房 </text>
+        <text class="level-score">完成率: <text class="bold">100%</text> | 平均专注: <text class="bold">89分</text></text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 医生端专业 ECharts 挂载区 -->
+  <view class="doctor-panel-card">
+    <view class="card-title-heavy">📊 专注力四维雷达图</view>
+    <text class="chart-sub">持续注意 · 选择注意 · 执行功能 · 冲动控制</text>
+    <view class="doctor-chart-container">
+      <!-- ec="{{ecDoctor}}" lazyLoad=false，组件自动初始化 -->
+      <ec-canvas
+        id="doctorEegChart"
+        canvas-id="mychart-doctor-eeg"
+        ec="{{ecDoctor}}"
+        bind:init="onInitDoctorChart">
+      </ec-canvas>
+    </view>
+  </view>
+
+  <view class="doctor-panel-card">
+    <view class="card-title-heavy">🩺 评估结论与医嘱</view>
+    <view class="system-auto-conclusion">
+      <text class="conclusion-text">根据近期训练数据，系统自动生成评估结论……</text>
+    </view>
+    <text class="chart-sub" style="margin-top: 20rpx;">📝 填写评语（家长可见）：</text>
+    <textarea 
+      class="modern-textarea" 
+      value="{{inputComment}}" 
+      placeholder="输入医嘱内容..." 
+      bindinput="onCommentInput"
+    />
+    
+    <view class="template-section">
+      <text class="section-tag">快捷评语：</text>
+      <view class="tags-group">
+        <text class="action-tag" bindtap="useTemplate" data-text="本周训练表现良好，专注力稳步提升。建议继续保持训练节奏，可适当增加失重备菜室难度，强化执行功能训练。">👍 表现良好</text>
+        <text class="action-tag" bindtap="useTemplate" data-text="本周注意力稳定性略有波动，后半段训练出现疲劳迹象。建议适当降低难度，单局时间控制在15分钟以内，保证充足休息。">⚠️ 需调整强度</text>
+      </view>
+    </view>
+
+    <button class="premium-submit-btn" bindtap="submitDoctorComment">
+      <text>发送给家长</text>
+    </button>
+  </view> 
+
+</block>
+<!-- ==================== 医生端结束 ==================== -->
+
+</scroll-view>
+
+<!-- 全局数据加载状态 -->
+<view class="loading-container" wx:else>
+<view class="pulse-loader"></view>
+<text class="load-text">加载中...</text>
+</view>

@@ -1,0 +1,799 @@
+/* ==========================================================================
+   全局容器与基础重置
+   ========================================================================== */
+   .container {
+    width: 100vw;
+    min-height: 100vh; /* ✨ 修复：从锁死 100vh 改为最小高度，允许全页自然滚动 */
+    background-color: #f6f8fa;
+    box-sizing: border-box;
+    padding-bottom: 120rpx; /* ✨ 修复：为底部自定义 Tabbar 栏留出绝对安全区 */
+    overflow-y: scroll; /* 显式允许纵向滚动 */
+  }
+  
+  /* ==========================================================================
+     1. 顶部儿童信息与角色切换卡片
+     ========================================================================== */
+  .premium-header-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 32rpx;
+    padding: 32rpx;
+    background: linear-gradient(135deg, #ffffff 0%, #fafdff 100%);
+    border-radius: 32rpx;
+    box-shadow: 0 8rpx 28rpx rgba(166, 184, 211, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+  }
+  
+  .child-profile {
+    display: flex;
+    align-items: center;
+  }
+  
+  .avatar-wrapper {
+    position: relative;
+    width: 96rpx;
+    height: 96rpx;
+    background: #c3dffa;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 24rpx;
+  }
+  
+  .avatar-emoji {
+    font-size: 52rpx;
+    z-index: 2;
+  }
+  
+  .pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(0, 145, 255, 0.15);
+    animation: pulse 2.5s infinite;
+    z-index: 1;
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.2); opacity: 0; }
+    100% { transform: scale(0.95); opacity: 0; }
+  }
+  
+  .profile-info {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .name-line {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8rpx;
+  }
+  
+  .child-name {
+    font-size: 34rpx;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-right: 12rpx;
+  }
+  
+  .age-badge {
+    font-size: 22rpx;
+    color: #0091ff;
+    background: rgba(0, 145, 255, 0.08);
+    padding: 4rpx 14rpx;
+    border-radius: 20rpx;
+    font-weight: 500;
+  }
+  
+  .stage-text {
+    font-size: 24rpx;
+    color: #7f8c8d;
+  }
+  
+  .stage-text .highlight {
+    color: #b1d7f5;
+    font-weight: 500;
+  }
+  
+  /* 角色切换按钮 */
+  .role-switcher {
+    display: flex;
+    align-items: center;
+    padding: 14rpx 24rpx;
+    border-radius: 40rpx;
+    font-size: 24rpx;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  }
+  
+  .role-switcher.parent {
+    background: #8fcfed;
+    color: #0050b3;
+    border: 1px solid #bae7ff;
+  }
+  
+  .role-switcher.doctor {
+    background: #f6ffed;
+    color: #389e0d;
+    border: 1px solid #b7eb8f;
+  }
+  
+  .role-icon {
+    margin-right: 8rpx;
+    font-size: 28rpx;
+  }
+  
+  /* ==========================================================================
+     2. 家长端样式板块
+     ========================================================================== */
+  
+  /* ==========================================================================
+     2. 家长端样式板块
+     ========================================================================== */
+  .growth-core-card {
+    margin: 0 32rpx 32rpx 32rpx;
+    padding: 36rpx;
+    background: #ffffff;
+    border-radius: 32rpx;
+    box-shadow: 0 8rpx 24rpx rgba(166, 184, 211, 0.1);
+  }
+  
+  .card-title-heavy {
+    font-size: 32rpx;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 28rpx;
+    display: flex;
+    align-items: center;
+  }
+  
+  .growth-item-row {
+    padding: 24rpx 0;
+    border-bottom: 1rpx solid #f0f3f6;
+  }
+  
+  .growth-item-row.no-border {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  
+  .item-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16rpx;
+  }
+  
+  .item-icon {
+    font-size: 44rpx;
+    margin-right: 20rpx;
+  }
+  
+  .item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .item-label {
+    font-size: 28rpx;
+    font-weight: 500;
+    color: #34495e;
+  }
+  
+  .item-desc {
+    font-size: 22rpx;
+    color: #95a5a6;
+    margin-top: 4rpx;
+  }
+  
+  .trend-up { color: #52c41a; font-weight: 500; }
+  .trend-down { color: #f5222d; font-weight: 500; }
+  
+  .item-value-large {
+    font-size: 40rpx;
+    font-weight: 700;
+    color: #2c3e50;
+    font-family: 'DIN Alternate', -apple-system, sans-serif;
+  }
+  
+  .item-unit {
+    font-size: 22rpx;
+    color: #7f8c8d;
+    font-weight: 400;
+    margin-left: 4rpx;
+  }
+  
+  /* 核心指标进度条组件 */
+  .growth-progress-wrapper {
+    height: 10rpx;
+    background: #f0f2f5;
+    border-radius: 5rpx;
+    overflow: hidden;
+    margin-left: 64rpx;
+  }
+  
+  .growth-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #0091ff, #00c4ff);
+    border-radius: 5rpx;
+    transition: width 0.6s ease;
+  }
+  
+  .growth-progress-bar.bg-purple {
+    background: linear-gradient(90deg, #722ed1, #b37feb);
+  }
+  
+  .growth-progress-bar.bg-green {
+    background: linear-gradient(90deg, #52c41a, #95de64);
+  }
+  
+  /* 多关卡并排迷你进度条 */
+  .multi-progress-line {
+    display: flex;
+    justify-content: space-between;
+    margin-left: 64rpx;
+    margin-top: 16rpx;
+  }
+  
+  .mini-progress {
+    width: 31%;
+    height: 8rpx;
+    background: #f0f2f5;
+    border-radius: 4rpx;
+    overflow: hidden;
+  }
+  
+  .mini-progress .fill {
+    height: 100%;
+    background: #0091ff;
+    border-radius: 4rpx;
+  }
+  
+  /* 可视化图表通用外壳 */
+  .chart-card {
+    margin: 0 32rpx 32rpx 32rpx;
+    padding: 36rpx;
+    background: #ffffff;
+    border-radius: 32rpx;
+    box-shadow: 0 8rpx 24rpx rgba(166, 184, 211, 0.1);
+  }
+  
+  .chart-sub {
+    font-size: 24rpx;
+    color: #95a5a6;
+    line-height: 1.5;
+    display: block;
+    margin-bottom: 30rpx;
+  }
+  
+  /* 成长亮点板块 */
+  .bright-spots-card {
+    margin: 0 32rpx 32rpx 32rpx;
+    padding: 36rpx;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    border-radius: 32rpx;
+    box-shadow: 0 8rpx 24rpx rgba(212, 177, 74, 0.08);
+    border: 1px solid rgba(245, 222, 179, 0.4);
+  }
+  
+  .spot-list {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .spot-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 20rpx;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 20rpx;
+    border-radius: 20rpx;
+  }
+  
+  .spot-item:last-child {
+    margin-bottom: 0;
+  }
+  
+  .spot-emoji {
+    font-size: 36rpx;
+    margin-right: 16rpx;
+    margin-top: -2rpx;
+  }
+  
+  .spot-text {
+    font-size: 26rpx;
+    color: #614d1a;
+    line-height: 1.5;
+    flex: 1;
+  }
+  
+  /* 纯 CSS 认知能力柱状图 */
+  .pure-css-chart {
+    display: flex;
+    height: 280rpx;
+    padding-top: 20rpx;
+  }
+  
+  .chart-axis-y {
+    width: 90rpx;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 22rpx;
+    color: #95a5a6;
+    padding-bottom: 50rpx;
+    border-right: 1rpx solid #ecf0f1;
+  }
+  
+  .bars-container {
+    flex: 1;
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    padding-left: 20rpx;
+  }
+  
+  .bar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 20%;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  
+  .bar-fill {
+    width: 32rpx;
+    background: linear-gradient(180deg, #00c4ff, #0091ff);
+    border-radius: 16rpx 16rpx 0 0;
+    min-height: 10rpx;
+    transition: height 1s ease-out;
+  }
+  
+  .bar-fill.warning {
+    background: linear-gradient(180deg, #ffbb96, #ff7a45);
+  }
+  
+  .bar-t {
+    font-size: 22rpx;
+    color: #7f8c8d;
+    margin-top: 16rpx;
+    white-space: nowrap;
+  }
+  
+  /* 唯美医生医嘱同步卡片 */
+  .aesthetic-doctor-card {
+    margin: 0 32rpx 32rpx 32rpx;
+    padding: 36rpx;
+    background: #ffffff;
+    border-radius: 32rpx;
+    box-shadow: 0 8rpx 24rpx rgba(166, 184, 211, 0.1);
+    border-left: 8rpx solid #0091ff;
+  }
+  
+  .doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24rpx;
+  }
+  
+  .doc-badge {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #0091ff;
+  }
+  
+  .doc-timestamp {
+    font-size: 22rpx;
+    color: #bdc3c7;
+  }
+  
+  .doc-speech-bubble {
+    position: relative;
+    padding: 0 20rpx;
+    margin-bottom: 24rpx;
+  }
+  
+  .quote-mark {
+    position: absolute;
+    left: -10rpx;
+    top: -20rpx;
+    font-size: 60rpx;
+    color: #e3edf7;
+    font-family: Georgia, serif;
+  }
+  
+  .bubble-text {
+    font-size: 27rpx;
+    color: #4a5568;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+    display: block;
+    text-align: justify;
+  }
+  
+  .doc-signature {
+    font-size: 24rpx;
+    color: #7f8c8d;
+    text-align: right;
+    font-weight: 500;
+  }
+  
+  /* 居家小任务列表 */
+  .task-card {
+    border-left: 8rpx solid #722ed1;
+  }
+  
+  .task-list {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 24rpx;
+  }
+  
+  .task-item:last-child {
+    margin-bottom: 0;
+  }
+  
+  .task-checkbox-mock {
+    width: 36rpx;
+    height: 36rpx;
+    border: 3rpx solid #d9d9d9;
+    border-radius: 10rpx;
+    margin-right: 20rpx;
+    margin-top: 4rpx;
+    background: #fafafa;
+  }
+  
+  .task-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .task-title {
+    font-size: 28rpx;
+    font-weight: 500;
+    color: #2c3e50;
+  }
+  
+  .task-desc {
+    font-size: 24rpx;
+    color: #7f8c8d;
+    margin-top: 6rpx;
+    line-height: 1.4;
+  }
+  
+  /* 渐变情绪温和提示卡 */
+  .care-gradient-card {
+    margin: 0 32rpx 40rpx 32rpx;
+    padding: 36rpx;
+    background: linear-gradient(135deg, #f0f7ff 0%, #f9f1ff 100%);
+    border-radius: 32rpx;
+    box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.02);
+  }
+  
+  .care-title {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #4b286d;
+    margin-bottom: 12rpx;
+  }
+  
+  .care-body {
+    font-size: 25rpx;
+    color: #6a5380;
+    line-height: 1.6;
+    display: block;
+    text-align: justify;
+  }
+  
+  /* ==========================================================================
+     3. 医生端专属样式板块
+     ========================================================================== */
+  .doctor-panel-card {
+    margin: 0 32rpx 32rpx 32rpx;
+    padding: 36rpx;
+    background: #ffffff;
+    border-radius: 32rpx;
+    box-shadow: 0 8rpx 24rpx rgba(166, 184, 211, 0.1);
+  }
+  
+  .medical-data-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 24rpx;
+  }
+  
+  .med-metric-box {
+    width: 48%;
+    background: #f8fafc;
+    padding: 24rpx;
+    border-radius: 20rpx;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .med-label {
+    font-size: 22rpx;
+    color: #64748b;
+  }
+  
+  .med-num-heavy {
+    font-size: 44rpx;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 16rpx 0 8rpx 0;
+    font-family: 'DIN Alternate', sans-serif;
+  }
+  
+  .med-status-indicator {
+    font-size: 20rpx;
+    padding: 4rpx 12rpx;
+    border-radius: 8rpx;
+    display: inline-block;
+    align-self: flex-start;
+  }
+  
+  .med-status-indicator.normal {
+    background: #e2f0d9;
+    color: #385723;
+  }
+  
+  .med-status-indicator.bad {
+    background: #fce4d6;
+    color: #c65911;
+  }
+  
+  .alert-red {
+    color: #ef4444 !important;
+  }
+  
+  /* 医生端学术指标化网格/表格 */
+  .custom-table {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 16rpx;
+    overflow: hidden;
+  }
+  
+  .table-tr {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+  }
+  
+  .table-tr:last-child {
+    border-bottom: none;
+  }
+  
+  .table-th {
+    background: #f1f5f9;
+  }
+  
+  .table-td {
+    flex: 1;
+    padding: 20rpx 12rpx;
+    font-size: 24rpx;
+    color: #334155;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .flex-2 {
+    flex: 1.8;
+    text-align: left;
+    justify-content: flex-start;
+    padding-left: 20rpx;
+  }
+  
+  .font-bold {
+    font-weight: 600;
+  }
+  
+  .status-text {
+    font-weight: 500;
+    padding: 2rpx 12rpx;
+    border-radius: 6rpx;
+  }
+  
+  .status-text.green { background: #dcfce7; color: #15803d; }
+  .status-text.orange { background: #ffedd5; color: #c2410c; }
+  
+  .text-trend {
+    font-size: 28rpx;
+    font-weight: 700;
+  }
+  
+  /* 关卡能力细分列表 */
+  .level-distribution-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 16rpx;
+  }
+  
+  .level-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20rpx 0;
+    border-bottom: 1rpx solid #f1f5f9;
+  }
+  
+  .level-item:last-child {
+    border-bottom: none;
+  }
+  
+  .level-name {
+    font-size: 26rpx;
+    color: #334155;
+    font-weight: 500;
+  }
+  
+  .level-score {
+    font-size: 24rpx;
+    color: #64748b;
+  }
+  
+  .level-score .bold {
+    font-weight: 600;
+    color: #0f172a;
+  }
+  
+  /* 智能评语生成与文本框 */
+  .system-auto-conclusion {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 20rpx;
+    border-radius: 16rpx;
+    margin-top: 16rpx;
+  }
+  
+  .conclusion-text {
+    font-size: 25rpx;
+    color: #1e40af;
+    line-height: 1.5;
+  }
+  
+  .modern-textarea {
+    width: 100%;
+    height: 180rpx;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 16rpx;
+    margin-top: 16rpx;
+    padding: 20rpx;
+    box-sizing: border-box;
+    font-size: 26rpx;
+    color: #334155;
+    line-height: 1.5;
+  }
+  
+  .template-section {
+    margin-top: 24rpx;
+  }
+  
+  .section-tag {
+    font-size: 24rpx;
+    color: #64748b;
+  }
+  
+  .tags-group {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 12rpx;
+  }
+  
+  .action-tag {
+    font-size: 22rpx;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 10rpx 20rpx;
+    border-radius: 30rpx;
+    margin-right: 16rpx;
+    margin-bottom: 16rpx;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .action-tag:active {
+    background: #e2e8f0;
+  }
+  
+  .premium-submit-btn {
+    margin-top: 32rpx;
+    width: 100% !important;
+    background: linear-gradient(135deg, #0091ff 0%, #0070cc 100%);
+    color: #ffffff;
+    border-radius: 20rpx;
+    font-size: 28rpx;
+    font-weight: 600;
+    padding: 24rpx 0;
+    box-shadow: 0 8rpx 24rpx rgba(0, 145, 255, 0.3);
+  }
+  
+  /* ==========================================================================
+     4. 全局数据加载态（医疗级链路拉取）
+     ========================================================================== */
+  .loading-container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+  }
+  
+  .pulse-loader {
+    width: 80rpx;
+    height: 80rpx;
+    border-radius: 50%;
+    background: #0091ff;
+    animation: pulseBg 1.8s infinite ease-in-out;
+  }
+  
+  @keyframes pulseBg {
+    0% { transform: scale(0.6); opacity: 0.1; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(0.6); opacity: 0.1; }
+  }
+  
+  /* ✨ 修复：补充了残缺的文本大小限制和右大括号 */
+  .load-text {
+    font-size: 26rpx;
+    color: #7f8c8d;
+    margin-top: 24rpx;
+  }
+  /* ========================================================
+   🚨 终极图表强力撑开样式 - 严禁删除 (防止 Canvas 0px 高度坍塌)
+   ======================================================== */
+
+/* 家长端图表容器 */
+.parent-chart-container {
+  width: 100% !important;
+  height: 520rpx !important;  /* 强行给予确定的物理空间 */
+  position: relative !important;
+  display: block !important;
+  margin: 20rpx 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* 医生端图表容器 */
+.doctor-chart-container {
+  width: 100% !important;
+  height: 480rpx !important;  /* 雷达图需要的物理空间 */
+  position: relative !important;
+  display: block !important;
+  margin: 24rpx 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* 🚨 触及微信自定义组件核心：强行撑满全局底层 Canvas */
+ec-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+
+/* 兼容部分低版本真机内核的内部 canvas 画布 */
+ec-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
