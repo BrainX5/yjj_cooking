@@ -31,15 +31,16 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     [Header("🎯 瞄准与吸取配置")]
     [Tooltip("手动把场景里的 3D 圆柱体 RealLaserBeam 拖到这里")]
     public GameObject realLaserObject;
+    [Tooltip("屏幕中心的蓝色准星 UI")]
     public Image crosshair;
-    [Tooltip("射线检测的最大距离")]
+    [Tooltip("允许瞄准的现实世界最大距离（米）")]
     public float maxAimDistance = 40f;
     [Tooltip("吸取蘑菇需要按住 T 的时间")]
     public float collectRequiredTime = 2.5f;
 
     [Header("🎯 刚性退出机制配置")]
-    public int targetCollectCount = 5; // 目标收集5个
-    private int currentlyCollectedCount = 0; // 核心刚性计数器
+    public int targetCollectCount = 5; 
+    private int currentlyCollectedCount = 0; 
 
     private float focusTimer = 0f;
     private Animator impAnimator;
@@ -82,27 +83,64 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         }
     }
 
+    // 🌟 核心改善：基于玩家视口像素间距的全新“精确视觉匹配”瞄准
     void HandleLaserAiming()
     {
-        if (mainCameraTransform == null) return;
+        if (mainCameraTransform == null || Camera.main == null) return;
 
-        Ray ray = new Ray(mainCameraTransform.position, mainCameraTransform.forward);
-        RaycastHit hit;
-        SCUT_WeightlessFloat hitMushroom = null;
-
-        if (Physics.Raycast(ray, out hit, maxAimDistance))
+        // 1. 定位蓝色光标的屏幕中心点
+        Vector2 cursorScreenPos = new Vector2(Screen.width / 2f, Screen.height / 2f);
+        
+        if (crosshair != null)
         {
-            SCUT_WeightlessFloat scr = hit.collider.GetComponent<SCUT_WeightlessFloat>();
-            if (scr != null && !scr.IsMushroomCollected())
+            // 如果你的 UI 准星可能由于分辨率拉伸不在正中心，通过此方法动态获取其绝对屏幕坐标
+            cursorScreenPos = RectTransformUtility.WorldToScreenPoint(null, crosshair.rectTransform.position);
+        }
+
+        // 💡 备用提示：如果你的蓝色光标后续改成了【随鼠标自由移动】而不是锁死在屏幕中央，
+        // 请直接解开下面这一行的注释：
+        // cursorScreenPos = Input.mousePosition;
+
+        // 2. 遍历查找距离该光标最近的有效蘑菇
+        SCUT_WeightlessFloat[] allMushrooms = FindObjectsOfType<SCUT_WeightlessFloat>();
+        SCUT_WeightlessFloat bestMushroom = null;
+        
+        float minScreenDistance = float.MaxValue;
+        
+        // 阈值控制：只有当光标距离蘑菇在 180 像素以内时才产生磁性吸附瞄准，防止隔着十万八千里误触
+        float maxSelectRadiusPixels = 180f; 
+
+        foreach (var msh in allMushrooms)
+        {
+            if (msh == null || msh.IsMushroomCollected() || !msh.gameObject.activeInHierarchy) 
+                continue;
+
+            // 检查 3D 真实世界距离，太远则不予检测
+            float worldDist = Vector3.Distance(mainCameraTransform.position, msh.transform.position);
+            if (worldDist > maxAimDistance) continue;
+
+            // 核心魔法：将蘑菇的世界 3D 坐标，计算投影为 2D 屏幕像素坐标
+            Vector3 screenPoint = Camera.main.WorldToScreenPoint(msh.transform.position);
+
+            // 确保蘑菇在相机镜头的前方（防止误锁身后的物体）
+            if (screenPoint.z > 0)
             {
-                hitMushroom = scr;
+                // 计算当前蘑菇在屏幕上与蓝色光标的纯视觉像素距离
+                float pixelDist = Vector2.Distance(cursorScreenPos, new Vector2(screenPoint.x, screenPoint.y));
+                
+                if (pixelDist < minScreenDistance && pixelDist < maxSelectRadiusPixels)
+                {
+                    minScreenDistance = pixelDist;
+                    bestMushroom = msh;
+                }
             }
         }
 
-        if (hitMushroom != currentTargetMushroom)
+        // 3. 产生刚性状态替换
+        if (bestMushroom != currentTargetMushroom)
         {
             if (currentTargetMushroom != null) currentTargetMushroom.SetTargeted(false);
-            currentTargetMushroom = hitMushroom;
+            currentTargetMushroom = bestMushroom;
             if (currentTargetMushroom != null) currentTargetMushroom.SetTargeted(true); 
         }
 
@@ -162,7 +200,6 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
             if (tKeyPressTimer >= collectRequiredTime)
             {
-                // 单个蘑菇收集成功
                 currentTargetMushroom.CollectSuccess();
                 currentTargetMushroom = null;
                 tKeyPressTimer = 0f;
@@ -170,11 +207,9 @@ public class SCUT_FlowerDryadController : MonoBehaviour
 
                 if (realLaserObject != null) realLaserObject.SetActive(false);
 
-                // 🌟 核心修改：无视任何物理检测，纯数字刚性累加！
                 currentlyCollectedCount++;
                 Debug.Log($"<color=green>【进度播报】成功吸取一个蘑菇！当前背包内总数: {currentlyCollectedCount} / {targetCollectCount}</color>");
 
-                // 刚性判定：一旦等于目标数，立刻强制执行退出机制
                 if (currentlyCollectedCount >= targetCollectCount)
                 {
                     Debug.Log("<color=red>【核心触发】5个蘑菇已全部集齐！无条件切断状态机，触发 WinSequence 退出流程！</color>");
@@ -201,12 +236,11 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     {
         if (currentPhase != ImpPhase.Waiting) return;
 
-        // 🌟 核心修改：在视角发生任何改变前，第一帧立刻抓取并锁死相机此时此刻最原始的机位！
         SCUT_CameraFlightTracker tracker = Camera.main.gameObject.GetComponent<SCUT_CameraFlightTracker>();
         if (tracker == null) tracker = Camera.main.gameObject.AddComponent<SCUT_CameraFlightTracker>();
         tracker.SavePlayerInitialTransform(); 
 
-        currentlyCollectedCount = 0; // 每次启动，计数安全清零
+        currentlyCollectedCount = 0; 
 
         SetImpVisibility(true);
         if (specialMushroom != null)
@@ -279,24 +313,19 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         if (realLaserObject != null) realLaserObject.SetActive(false);
         if (windAudio != null) windAudio.Stop();
 
-        Debug.Log("【退出流程进行中】1. 命令场景中剩余未收集的悬浮装饰物平滑落回地面原位...");
         if (floatingObjects != null)
         {
             floatingObjects.BroadcastMessage("LandBackToGround", SendMessageOptions.DontRequireReceiver);
         }
 
-        Debug.Log("【退出流程进行中】2. 呼叫相机脚本，执行机位平滑还原归位...");
         SCUT_CameraFlightTracker tracker = Camera.main.gameObject.GetComponent<SCUT_CameraFlightTracker>();
         if (tracker != null)
         {
-            tracker.ResetCameraTrack(); // 让相机平滑返回到最开始记录的原始视角
+            tracker.ResetCameraTrack(); 
         }
 
         yield return new WaitForSeconds(1.5f);
-
         SetImpVisibility(false);
-        
-        Debug.Log("<color=cyan>【退出流程结束】3. 状态全面重置完毕，重回 Waiting 状态，等待下一次特殊蘑菇触发。</color>");
         currentPhase = ImpPhase.Waiting;
     }
 }
