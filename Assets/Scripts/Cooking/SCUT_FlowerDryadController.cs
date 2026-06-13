@@ -35,8 +35,12 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     public Image crosshair;
     [Tooltip("允许瞄准的现实世界最大距离（米）")]
     public float maxAimDistance = 40f;
-    [Tooltip("吸取蘑菇需要按住 T 的时间")]
+    [Tooltip("吸取一颗蘑菇所需的持续专注时间")]
     public float collectRequiredTime = 2.5f;
+    [Tooltip("专注达标时，吸取进度每秒的推进速度倍率")]
+    public float collectFocusGainPerSecond = 1f;
+    [Tooltip("专注中断时，吸取进度每秒的回落速度倍率")]
+    public float collectFocusDecayPerSecond = 0.85f;
 
     [Header("🎯 刚性退出机制配置")]
     public int targetCollectCount = 5; 
@@ -46,9 +50,11 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     private Animator impAnimator;
     private Renderer[] impRenderers;
     private Transform mainCameraTransform;
+    private HybridBciGameplayInput gameplayInput;
+    private WeightlessMissionUI missionUI;
 
     private SCUT_WeightlessFloat currentTargetMushroom = null;
-    private float tKeyPressTimer = 0f;
+    private float collectFocusTimer = 0f;
     private bool isLockingTarget = false; 
 
     void Awake()
@@ -60,6 +66,8 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     void Start()
     {
         mainCameraTransform = Camera.main.transform;
+        gameplayInput = FindObjectOfType<HybridBciGameplayInput>();
+        missionUI = FindObjectOfType<WeightlessMissionUI>();
         SetImpVisibility(false);
         if (windParticle != null) windParticle.Stop();
         if (windAudio != null) windAudio.Stop();
@@ -182,63 +190,82 @@ public class SCUT_FlowerDryadController : MonoBehaviour
     {
         if (currentTargetMushroom == null)
         {
-            tKeyPressTimer = 0f;
+            collectFocusTimer = 0f;
+            focusTimer = 0f;
             isLockingTarget = false;
             return;
         }
 
-        if (Input.GetKey(KeyCode.T))
+        var attentionActive = IsCollectAttentionActive();
+        var cameraTargetPos = mainCameraTransform.position + mainCameraTransform.forward * 1.2f;
+
+        if (attentionActive)
         {
             isLockingTarget = true;
-            tKeyPressTimer += Time.deltaTime;
-            float progress = tKeyPressTimer / collectRequiredTime;
-
-            Vector3 cameraTargetPos = mainCameraTransform.position + mainCameraTransform.forward * 1.2f;
-            currentTargetMushroom.UpdateCollectProgress(progress, cameraTargetPos);
-
-            UpdateLaserBeamTransform();
-
-            if (tKeyPressTimer >= collectRequiredTime)
-            {
-                // 成功捕获目标
-                SCUT_WeightlessFloat completedMushroom = currentTargetMushroom;
-                completedMushroom.CollectSuccess();
-                
-                // 清空并解除原目标绑定
-                currentTargetMushroom = null;
-                tKeyPressTimer = 0f;
-                isLockingTarget = false;
-
-                // 💡 修复关键：取消了强行SetActive(false)这一步，让瞄准接力算法去决定生死
-
-                currentlyCollectedCount++;
-                Debug.Log($"<color=green>【进度播报】成功吸取一个蘑菇！当前背包内总数: {currentlyCollectedCount} / {targetCollectCount}</color>");
-
-                if (currentlyCollectedCount >= targetCollectCount)
-                {
-                    Debug.Log("<color=red>【核心触发】5个蘑菇已全部集齐！无条件切断状态机，触发 WinSequence 退出流程！</color>");
-                    currentPhase = ImpPhase.Recovered;
-                    StartCoroutine(WinSequence());
-                }
-                else
-                {
-                    // 💡 修复关键：在当前帧内立即、强行无视半径限制寻找下一个可用蘑菇，使激光直接“弹跳”连连看，告别黑屏消失感
-                    HandleLaserAiming(true);
-                }
-            }
+            focusTimer += Time.deltaTime;
+            collectFocusTimer = Mathf.Min(
+                collectRequiredTime,
+                collectFocusTimer + Time.deltaTime * Mathf.Max(0.1f, collectFocusGainPerSecond));
         }
         else
         {
-            if (isLockingTarget)
+            focusTimer = 0f;
+            collectFocusTimer = Mathf.Max(
+                0f,
+                collectFocusTimer - Time.deltaTime * Mathf.Max(0.1f, collectFocusDecayPerSecond));
+            isLockingTarget = collectFocusTimer > 0.01f;
+
+            if (collectFocusTimer <= 0.01f)
             {
-                tKeyPressTimer = 0f;
-                isLockingTarget = false;
-                if (currentTargetMushroom != null)
-                {
-                    currentTargetMushroom.ResetCollectProgress();
-                }
+                currentTargetMushroom.ResetCollectProgress();
             }
         }
+
+        currentTargetMushroom.UpdateCollectProgress(
+            Mathf.Clamp01(collectFocusTimer / collectRequiredTime),
+            cameraTargetPos);
+        UpdateLaserBeamTransform();
+
+        if (collectFocusTimer >= collectRequiredTime)
+        {
+            SCUT_WeightlessFloat completedMushroom = currentTargetMushroom;
+            completedMushroom.CollectSuccess();
+
+            currentTargetMushroom = null;
+            collectFocusTimer = 0f;
+            focusTimer = 0f;
+            isLockingTarget = false;
+
+            currentlyCollectedCount++;
+            missionUI?.AddOne();
+            Debug.Log($"<color=green>【进度播报】成功吸取一个蘑菇！当前背包内总数: {currentlyCollectedCount} / {targetCollectCount}</color>");
+
+            if (currentlyCollectedCount >= targetCollectCount)
+            {
+                Debug.Log("<color=red>【核心触发】5个蘑菇已全部集齐！无条件切断状态机，触发 WinSequence 退出流程！</color>");
+                currentPhase = ImpPhase.Recovered;
+                StartCoroutine(WinSequence());
+            }
+            else
+            {
+                HandleLaserAiming(true);
+            }
+        }
+    }
+
+    private bool IsCollectAttentionActive()
+    {
+        if (gameplayInput == null)
+        {
+            gameplayInput = FindObjectOfType<HybridBciGameplayInput>();
+        }
+
+        if (gameplayInput != null && gameplayInput.HasLiveConnection)
+        {
+            return gameplayInput.IsAttentionActive;
+        }
+
+        return focusScore >= targetFocus;
     }
 
     public void TriggerSpecialMushroomEvent(GameObject specialMushroom)
@@ -250,6 +277,7 @@ public class SCUT_FlowerDryadController : MonoBehaviour
         tracker.SavePlayerInitialTransform(); 
 
         currentlyCollectedCount = 0; 
+        missionUI?.StartMission();
 
         SetImpVisibility(true);
         if (specialMushroom != null)
