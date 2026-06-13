@@ -89,13 +89,18 @@ public class SimpleFirstPersonController : MonoBehaviour
 
     private void UpdateLook()
     {
-        if (playerCamera == null || Cursor.lockState != CursorLockMode.Locked)
+        if (playerCamera == null)
         {
             return;
         }
 
-        var mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-        var mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        var mouseX = 0f;
+        var mouseY = 0f;
+        if (Cursor.lockState == CursorLockMode.Locked)
+        {
+            mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+            mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        }
 
         transform.Rotate(0f, mouseX, 0f);
 
