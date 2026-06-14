@@ -63,8 +63,9 @@ Page({
     const that = this;
     const todayStart = new Date(new Date().toDateString()).getTime();
 
+    // 注：数据来自 Unity HTTP 上传，_openid 统一为 "unity_user"
+    // 使用 .where({ childId: 'child_001' }) 可按需过滤指定儿童
     db.collection('main_game_logs')
-      .where({ _openid: '{openid}' })
       .orderBy('timestamp', 'desc')
       .limit(100)
       .get({

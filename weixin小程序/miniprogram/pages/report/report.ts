@@ -92,10 +92,10 @@ Page({
 
     console.log(`📅 本周起始时间戳: ${weekStart} (${toDateText(weekStart)})`);
 
-    // 从 main_game_logs 拉取本周所有训练记录，按时间降序
+    // 注：数据来自 Unity HTTP 上传，_openid 统一为 "unity_user"
+    // 使用 .where({ childId: 'child_001', timestamp: _.gte(weekStart) }) 可按需过滤
     db.collection('main_game_logs')
       .where({
-        _openid: '{openid}',
         timestamp: _.gte(weekStart)  // 只拉本周数据
       })
       .orderBy('timestamp', 'desc')
