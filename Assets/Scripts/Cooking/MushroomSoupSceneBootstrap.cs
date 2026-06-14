@@ -39,6 +39,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
     [SerializeField] private Vector3 canalFishPadding = new Vector3(1.2f, 0.4f, 1.2f);
     [SerializeField] private GameObject canalFishPrefab;
     [SerializeField] private string fishPrefabPath = "Assets/DenysAlmaral/FishAlive/Prefabs/FishFreshwater/freshWater_guppy.prefab";
+    [SerializeField] private string fryFishPrefabPath = "Assets/Patchmesh/Free Stylized Hand-Painted Cozy Kitchen & Market Scene Sample/Prefabs/Fish.prefab";
     [SerializeField] private float fryPotScaleMultiplier = 0.3333f;
     [SerializeField] private Vector3 fryFishLocalOffset = new Vector3(0f, 0.18f, 0f);
     [SerializeField] private Vector3 fryFishLocalRotation = new Vector3(0f, 90f, 0f);
@@ -997,7 +998,7 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         GameObject fishObject = null;
 
 #if UNITY_EDITOR
-        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(fishPrefabPath);
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(fryFishPrefabPath);
         if (prefab != null)
         {
             fishObject = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
@@ -1029,8 +1030,10 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         fishCenterLocal = fishObject.transform.InverseTransformPoint(fishBounds.center);
         fishObject.transform.localPosition = -fishCenterLocal;
 
+        AddFriedFishSearMarks(fishObject);
         RemoveAllColliders(fishObject);
         DisableFishMotion(fishObject);
+        EnsureCompatibleFishMaterials(fishObject);
 
         fishRenderer = fishObject.GetComponentInChildren<Renderer>(true);
         if (fishRenderer != null)
@@ -1039,6 +1042,158 @@ public class MushroomSoupSceneBootstrap : MonoBehaviour
         }
 
         return fishRoot;
+    }
+
+    private void AddFriedFishSearMarks(GameObject fishObject)
+    {
+        var fishBounds = CalculateRendererBounds(fishObject);
+        var localCenter = fishObject.transform.InverseTransformPoint(fishBounds.center);
+        var size = fishBounds.size;
+        var markLength = Mathf.Max(size.x, size.z) * 0.42f;
+        var markWidth = Mathf.Max(0.012f, Mathf.Min(size.x, size.z) * 0.09f);
+        var markHeight = Mathf.Max(0.003f, size.y * 0.015f);
+        var topOffset = size.y * 0.18f + markHeight;
+        var stripeOffsets = new[] { -0.16f, 0f, 0.16f };
+
+        for (var i = 0; i < stripeOffsets.Length; i++)
+        {
+            var mark = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            mark.name = $"SearMark_{i + 1}";
+            mark.transform.SetParent(fishObject.transform, false);
+            mark.transform.localPosition = localCenter + new Vector3(stripeOffsets[i] * size.x, topOffset, 0f);
+            mark.transform.localRotation = Quaternion.Euler(0f, 28f, 0f);
+            mark.transform.localScale = new Vector3(markWidth, markHeight, markLength);
+
+            var markRenderer = mark.GetComponent<Renderer>();
+            if (markRenderer != null)
+            {
+                var markMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                markMaterial.color = new Color(0.42f, 0.22f, 0.1f, 1f);
+                if (markMaterial.HasProperty("_BaseColor"))
+                {
+                    markMaterial.SetColor("_BaseColor", new Color(0.42f, 0.22f, 0.1f, 1f));
+                }
+
+                if (markMaterial.HasProperty("_Smoothness"))
+                {
+                    markMaterial.SetFloat("_Smoothness", 0.18f);
+                }
+
+                markRenderer.sharedMaterial = markMaterial;
+                markRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                markRenderer.receiveShadows = false;
+            }
+
+            DestroyCollider(mark);
+        }
+    }
+
+    private void EnsureCompatibleFishMaterials(GameObject fishObject)
+    {
+        var renderers = fishObject.GetComponentsInChildren<Renderer>(true);
+        foreach (var renderer in renderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            var sharedMaterials = renderer.sharedMaterials;
+            var updatedMaterials = new Material[sharedMaterials.Length];
+            var changed = false;
+
+            for (var i = 0; i < sharedMaterials.Length; i++)
+            {
+                var sourceMaterial = sharedMaterials[i];
+                updatedMaterials[i] = sourceMaterial;
+
+                if (sourceMaterial == null)
+                {
+                    continue;
+                }
+
+                var shader = sourceMaterial.shader;
+                if (shader != null && shader.isSupported)
+                {
+                    continue;
+                }
+
+                var fallbackShader = Shader.Find("Universal Render Pipeline/Lit");
+                if (fallbackShader == null)
+                {
+                    fallbackShader = Shader.Find("Standard");
+                }
+
+                if (fallbackShader == null)
+                {
+                    continue;
+                }
+
+                var fallbackMaterial = new Material(fallbackShader)
+                {
+                    name = sourceMaterial.name + "_Fallback"
+                };
+
+                if (sourceMaterial.HasProperty("_BaseMap"))
+                {
+                    var baseMap = sourceMaterial.GetTexture("_BaseMap");
+                    if (baseMap != null)
+                    {
+                        if (fallbackMaterial.HasProperty("_BaseMap"))
+                        {
+                            fallbackMaterial.SetTexture("_BaseMap", baseMap);
+                        }
+
+                        if (fallbackMaterial.HasProperty("_MainTex"))
+                        {
+                            fallbackMaterial.SetTexture("_MainTex", baseMap);
+                        }
+                    }
+                }
+                else if (sourceMaterial.HasProperty("_MainTex"))
+                {
+                    var mainTex = sourceMaterial.GetTexture("_MainTex");
+                    if (mainTex != null)
+                    {
+                        if (fallbackMaterial.HasProperty("_BaseMap"))
+                        {
+                            fallbackMaterial.SetTexture("_BaseMap", mainTex);
+                        }
+
+                        if (fallbackMaterial.HasProperty("_MainTex"))
+                        {
+                            fallbackMaterial.SetTexture("_MainTex", mainTex);
+                        }
+                    }
+                }
+
+                if (sourceMaterial.HasProperty("_BaseColor"))
+                {
+                    var baseColor = sourceMaterial.GetColor("_BaseColor");
+                    if (fallbackMaterial.HasProperty("_BaseColor"))
+                    {
+                        fallbackMaterial.SetColor("_BaseColor", baseColor);
+                    }
+
+                    if (fallbackMaterial.HasProperty("_Color"))
+                    {
+                        fallbackMaterial.SetColor("_Color", baseColor);
+                    }
+                }
+                else if (sourceMaterial.HasProperty("_Color") && fallbackMaterial.HasProperty("_Color"))
+                {
+                    fallbackMaterial.SetColor("_Color", sourceMaterial.GetColor("_Color"));
+                }
+
+                updatedMaterials[i] = fallbackMaterial;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                renderer.sharedMaterials = updatedMaterials;
+            }
+        }
     }
 
     private void DisableFishMotion(GameObject fishObject)
