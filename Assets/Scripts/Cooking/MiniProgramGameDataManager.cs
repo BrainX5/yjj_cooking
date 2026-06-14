@@ -61,6 +61,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
     private float lowAttentionDuration;
     private string activeGameModule = string.Empty;
     private string activeRecipeName = string.Empty;
+    private string lastDebugButtonClick = "None";
     private string lastPayloadJson = string.Empty;
     private string lastUploadStatus = "Idle";
     private bool sessionActive;
@@ -402,6 +403,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         {
             debugStatusText.text =
                 $"Status: {lastUploadStatus}\n" +
+                $"Last Click: {lastDebugButtonClick}\n" +
                 $"ChildId: {childId}\n" +
                 $"Collection: {targetCollectionName}";
             debugStatusText.color = ResolveStatusColor();
@@ -411,7 +413,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         {
             debugHintText.text =
                 $"Shortcut: {FormatQuickUploadShortcut()}\n" +
-                "Press Esc to unlock mouse";
+                "Press Esc to unlock mouse before clicking";
         }
     }
 
@@ -446,10 +448,11 @@ public class MiniProgramGameDataManager : MonoBehaviour
         panelRect.anchorMax = new Vector2(1f, 0f);
         panelRect.pivot = new Vector2(1f, 0f);
         panelRect.anchoredPosition = new Vector2(-20f, 20f);
-        panelRect.sizeDelta = new Vector2(360f, 180f);
+        panelRect.sizeDelta = new Vector2(360f, 212f);
 
         var panelImage = panel.AddComponent<Image>();
         panelImage.color = new Color(0.08f, 0.12f, 0.16f, 0.88f);
+        panelImage.raycastTarget = false;
 
         CreateLabel(
             panel.transform,
@@ -466,7 +469,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
             "Status",
             string.Empty,
             new Vector2(18f, -48f),
-            new Vector2(324f, 66f),
+            new Vector2(324f, 86f),
             16,
             FontStyle.Normal,
             Color.white);
@@ -475,7 +478,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
             panel.transform,
             "UploadButton",
             "Quick Upload",
-            new Vector2(18f, -118f),
+            new Vector2(18f, -138f),
             new Vector2(150f, 38f),
             new Color(0.2f, 0.62f, 0.35f, 0.96f),
             UploadQuickTestPayload);
@@ -484,7 +487,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
             panel.transform,
             "RetryButton",
             "Retry Last",
-            new Vector2(186f, -118f),
+            new Vector2(186f, -138f),
             new Vector2(150f, 38f),
             new Color(0.21f, 0.42f, 0.72f, 0.96f),
             RetryLastUpload);
@@ -493,8 +496,8 @@ public class MiniProgramGameDataManager : MonoBehaviour
             panel.transform,
             "Hint",
             string.Empty,
-            new Vector2(18f, -160f),
-            new Vector2(324f, 30f),
+            new Vector2(18f, -184f),
+            new Vector2(324f, 34f),
             14,
             FontStyle.Normal,
             new Color(0.78f, 0.87f, 0.97f, 1f));
@@ -547,6 +550,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.color = color;
         text.text = value;
+        text.raycastTarget = false;
 
         return text;
     }
@@ -598,6 +602,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
 
         var image = buttonObject.AddComponent<Image>();
         image.color = backgroundColor;
+        image.raycastTarget = true;
 
         var button = buttonObject.AddComponent<Button>();
         button.targetGraphic = image;
@@ -608,7 +613,12 @@ public class MiniProgramGameDataManager : MonoBehaviour
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.75f);
         button.colors = colors;
-        button.onClick.AddListener(onClick);
+        button.onClick.AddListener(() =>
+        {
+            lastDebugButtonClick = $"{label} @ {DateTime.Now:HH:mm:ss}";
+            Debug.Log($"MiniProgram debug UI clicked: {lastDebugButtonClick}", this);
+            onClick?.Invoke();
+        });
 
         var labelText = CreateLabel(
             buttonObject.transform,
