@@ -34,6 +34,10 @@ function sanitize(data) {
     peakFocus:       clamp(Number(data.peakFocus) || 0, 0, 100),
     distractCount:   Math.max(0, Number(data.distractCount) || 0),
 
+    // 保留扩展字段（如 childId, score 等）
+    childId:         String(data.childId || ''),
+    score:           Number(data.score) || 0,
+
     dimensionMetrics: {
       sustained:  clamp(Number(data.dimensionMetrics?.sustained)  || 0, 0, 100),
       selective:  clamp(Number(data.dimensionMetrics?.selective)  || 0, 0, 100),
@@ -90,6 +94,13 @@ exports.main = async (event, context) => {
       console.error('❌ JSON 解析失败，原始内容:', event.body);
       return httpResponse({ code: -1, msg: '请求体 JSON 解析失败', data: null }, 400);
     }
+
+    // 兼容包装格式：{ envId, collectionName, payload: { ...实际数据 } }
+    if (data.payload && typeof data.payload === 'object') {
+      console.log('📦 [DEBUG] 检测到 payload 包装格式，自动解包');
+      data = data.payload;
+    }
+
     // Unity 端需要传 openid 或 userId 来标识用户
     userOpenid = data.openid || data.userId || 'unity_user';
     console.log(`🌐 HTTP 请求 | user=${userOpenid} | game_module=${data.game_module} | avgAttention=${data.avgAttention} | peakFocus=${data.peakFocus} | durationMinutes=${data.durationMinutes} | distractCount=${data.distractCount}`);
@@ -97,6 +108,13 @@ exports.main = async (event, context) => {
   } else {
     // --- 云函数直调方式（小程序内调用）---
     data = event;
+
+    // 兼容小程序端也可能传入 payload 包装
+    if (data.payload && typeof data.payload === 'object') {
+      console.log('📦 [DEBUG] 小程序调用检测到 payload 包装格式，自动解包');
+      data = data.payload;
+    }
+
     const wxContext = cloud.getWXContext();
     userOpenid = wxContext.OPENID;
     console.log(`📱 小程序调用 | openid=${userOpenid}`);
