@@ -25,7 +25,7 @@ Page({
     levelProgress: { camp: 0, room: 0, kitchen: 0 } as Record<string, number>,
 
     // 今日小结
-    todayDuration: 0,
+    todayDurationDisplay: '0.0',
     todayPeak: 0,
     todayDistract: 0
   },
@@ -97,7 +97,8 @@ Page({
       ? Math.round(todayLogs.reduce((s: number, l: any) => s + (l.avgAttention || 0), 0) / todayLogs.length)
       : Math.round(latest.avgAttention || 0);
 
-    const todayDuration = todayLogs.reduce((s: number, l: any) => s + (l.durationMinutes || 0), 0);
+    const todayDurationRaw = todayLogs.reduce((s: number, l: any) => s + (l.durationMinutes || 0), 0);
+    const todayDurationDisplay = todayDurationRaw.toFixed(1);
 
     const todayPeak = todayLogs.length
       ? Math.max(...todayLogs.map((l: any) => l.peakFocus || l.avgAttention || 0))
@@ -107,7 +108,7 @@ Page({
 
     // ---- 战报等级 ----
     const level = todayFocus >= 80 ? 'excellent' : todayFocus >= 60 ? 'good' : 'attention';
-    const levelText = todayFocus >= 80 ? '专注力优秀 ✨' : todayFocus >= 60 ? '专注力良好 👍' : '需要加油 💪';
+    const levelText = todayFocus >= 80 ? '专注力优秀 ✨' : todayFocus >= 60 ? '专注力良好 👍' : '起步阶段，稳步前进';
     const progressText = todayLogs.length
       ? `今日完成 ${todayLogs.length} 局训练，小火车前进了 ${todayFocus}% 的路程！`
       : `最新一局平均专注力 ${todayFocus} 分，继续加油哦 🌲`;
@@ -145,7 +146,7 @@ Page({
       currentGame,
       gameCount,
       levelProgress,
-      todayDuration,
+      todayDurationDisplay,
       todayPeak,
       todayDistract,
       loading: false

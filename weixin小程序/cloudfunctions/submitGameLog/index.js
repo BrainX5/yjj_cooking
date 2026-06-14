@@ -19,6 +19,12 @@ function clamp(val, min, max) {
 /**
  * 校验并补全游戏提交的训练日志
  */
+/** 保留 n 位小数 */
+function round(val, n) {
+  const p = Math.pow(10, n);
+  return Math.round(val * p) / p;
+}
+
 function sanitize(data) {
   const now = Date.now();
 
@@ -27,32 +33,31 @@ function sanitize(data) {
     game_module:     ['camp', 'room', 'kitchen'].includes(data.game_module)
                        ? data.game_module
                        : 'camp',
-    durationMinutes: Number(data.durationMinutes) || 0,
+    durationMinutes: round(Number(data.durationMinutes) || 0, 1),
     recipeName:      String(data.recipeName || ''),
 
-    avgAttention:    clamp(Number(data.avgAttention) || 0, 0, 100),
-    peakFocus:       clamp(Number(data.peakFocus) || 0, 0, 100),
-    distractCount:   Math.max(0, Number(data.distractCount) || 0),
+    avgAttention:    clamp(Math.round(Number(data.avgAttention) || 0), 0, 100),
+    peakFocus:       clamp(Math.round(Number(data.peakFocus || data.eegMetrics?.peakFocus) || 0), 0, 100),
+    distractCount:   Math.max(0, Math.round(Number(data.distractCount) || 0)),
 
-    // 保留扩展字段（如 childId, score 等）
     childId:         String(data.childId || ''),
-    score:           Number(data.score) || 0,
+    score:           Math.round(Number(data.score) || 0),
 
     dimensionMetrics: {
-      sustained:  clamp(Number(data.dimensionMetrics?.sustained)  || 0, 0, 100),
-      selective:  clamp(Number(data.dimensionMetrics?.selective)  || 0, 0, 100),
-      executive:  clamp(Number(data.dimensionMetrics?.executive)  || 0, 0, 100),
-      impulse:    clamp(Number(data.dimensionMetrics?.impulse)    || 0, 0, 100),
+      sustained:  clamp(Math.round(Number(data.dimensionMetrics?.sustained)  || 0), 0, 100),
+      selective:  clamp(Math.round(Number(data.dimensionMetrics?.selective)  || 0), 0, 100),
+      executive:  clamp(Math.round(Number(data.dimensionMetrics?.executive)  || 0), 0, 100),
+      impulse:    clamp(Math.round(Number(data.dimensionMetrics?.impulse)    || 0), 0, 100),
     },
 
     eegMetrics: {
-      meanFocus:           Number(data.eegMetrics?.meanFocus)           || 0,
-      peakFocus:           Number(data.eegMetrics?.peakFocus)           || 0,
-      valFocus:            Number(data.eegMetrics?.valFocus)            || 0,
-      durationRatio60:     clamp(Number(data.eegMetrics?.durationRatio60)  || 0, 0, 100),
-      durationRatio80:     clamp(Number(data.eegMetrics?.durationRatio80)  || 0, 0, 100),
-      avgDistractDuration: Number(data.eegMetrics?.avgDistractDuration) || 0,
-      focusCv:             Number(data.eegMetrics?.focusCv)             || 0,
+      meanFocus:           round(Number(data.eegMetrics?.meanFocus)           || 0, 1),
+      peakFocus:           round(Number(data.eegMetrics?.peakFocus)           || 0, 1),
+      valFocus:            round(Number(data.eegMetrics?.valFocus)            || 0, 1),
+      durationRatio60:     round(clamp(Number(data.eegMetrics?.durationRatio60)  || 0, 0, 100), 1),
+      durationRatio80:     round(clamp(Number(data.eegMetrics?.durationRatio80)  || 0, 0, 100), 1),
+      avgDistractDuration: round(Number(data.eegMetrics?.avgDistractDuration) || 0, 1),
+      focusCv:             round(Number(data.eegMetrics?.focusCv)             || 0, 2),
     },
 
     clientVersion: String(data.clientVersion || ''),

@@ -6,16 +6,17 @@
     ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#8FBC8F",
+    "navigationBarBackgroundColor": "#68A98A",
     "navigationBarTitleText": "森厨小当家",
     "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F7F5",
     "navigationStyle": "default"
   },
   "tabBar": {
-    "color": "#7A7E83",
-    "selectedColor": "#8FBC8F",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "color": "#888888",
+    "selectedColor": "#68A98A",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",

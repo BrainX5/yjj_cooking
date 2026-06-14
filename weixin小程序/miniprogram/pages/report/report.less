@@ -1,799 +1,548 @@
 /* ==========================================================================
-   全局容器与基础重置
+   森厨小当家 — 治愈儿童康复向设计系统 v2
+   主色：柔雾森绿 #68A98A  |  辅助暖陶杏 #F2B888  |  雾浅蓝 #849FD9
+   圆角梯度：大卡 16px / 小卡 10px / 标签 6px
+   阴影统一：0 2px 8px rgba(104,169,138,0.08)
    ========================================================================== */
-   .container {
-    width: 100vw;
-    min-height: 100vh; /* ✨ 修复：从锁死 100vh 改为最小高度，允许全页自然滚动 */
-    background-color: #f6f8fa;
-    box-sizing: border-box;
-    padding-bottom: 120rpx; /* ✨ 修复：为底部自定义 Tabbar 栏留出绝对安全区 */
-    overflow-y: scroll; /* 显式允许纵向滚动 */
+
+/* ==========================================================================
+   0. 设计令牌（CSS 变量）
+   ========================================================================== */
+   page {
+    --c-main:       #68A98A;
+    --c-main-light: #E6F2EC;
+    --c-main-dark:  #4A8F6E;
+    --c-warm:       #F2B888;
+    --c-warm-light: #FDF2E5;
+    --c-blue:       #849FD9;
+    --c-blue-light: #EDF1FA;
+    --c-purple:     #A89CC8;
+    --c-purple-light:#F2EEF8;
+    --c-title:      #2A2A2A;
+    --c-body:       #555555;
+    --c-hint:       #888888;
+    --c-disabled:   #CCCCCC;
+    --c-good:       #87BFAA;
+    --c-neutral:    #D9C2A9;
+    --c-bad:        #D98A78;
+    --c-white:      #FFFFFF;
+    --c-bg:         #F5F7F5;
+    --shadow-card:  0 2px 8px rgba(104,169,138,0.08);
+    --radius-lg:    16px;
+    --radius-md:    10px;
+    --radius-sm:    6px;
   }
-  
-  /* ==========================================================================
-     1. 顶部儿童信息与角色切换卡片
-     ========================================================================== */
+
+/* ==========================================================================
+   全局容器
+   ========================================================================== */
+  .container {
+    width: 100vw;
+    min-height: 100vh;
+    background-color: var(--c-bg);
+    box-sizing: border-box;
+    padding-bottom: 120rpx;
+    overflow-y: scroll;
+  }
+
+/* ==========================================================================
+   1. 头部卡片（压缩高度，徽章化）
+   ========================================================================== */
   .premium-header-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: 32rpx;
-    padding: 32rpx;
-    background: linear-gradient(135deg, #ffffff 0%, #fafdff 100%);
-    border-radius: 32rpx;
-    box-shadow: 0 8rpx 28rpx rgba(166, 184, 211, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    margin: 24rpx 32rpx;
+    padding: 28rpx 32rpx;
+    background: var(--c-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
   }
-  
-  .child-profile {
-    display: flex;
-    align-items: center;
-  }
-  
+
+  .child-profile { display: flex; align-items: center; }
+
   .avatar-wrapper {
     position: relative;
-    width: 96rpx;
-    height: 96rpx;
-    background: #c3dffa;
+    width: 88rpx; height: 88rpx;
+    background: linear-gradient(135deg, #E6F2EC, #D0E8DC);
     border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 24rpx;
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 20rpx;
+    box-shadow: 0 2px 8px rgba(104,169,138,0.15);
   }
-  
-  .avatar-emoji {
-    font-size: 52rpx;
-    z-index: 2;
-  }
-  
+
+  .avatar-emoji { font-size: 48rpx; z-index: 2; }
+
   .pulse-ring {
-    position: absolute;
-    width: 100%;
-    height: 100%;
+    position: absolute; width: 100%; height: 100%;
     border-radius: 50%;
-    background: rgba(0, 145, 255, 0.15);
-    animation: pulse 2.5s infinite;
-    z-index: 1;
+    background: rgba(104,169,138,0.15);
+    animation: pulse 2.5s infinite; z-index: 1;
   }
-  
+
   @keyframes pulse {
     0% { transform: scale(0.95); opacity: 0.8; }
     50% { transform: scale(1.2); opacity: 0; }
     100% { transform: scale(0.95); opacity: 0; }
   }
-  
-  .profile-info {
-    display: flex;
-    flex-direction: column;
-  }
-  
+
+  .profile-info { display: flex; flex-direction: column; }
+
   .name-line {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8rpx;
+    display: flex; align-items: center; margin-bottom: 6rpx;
   }
-  
+
   .child-name {
-    font-size: 34rpx;
-    font-weight: 600;
-    color: #2c3e50;
-    margin-right: 12rpx;
+    font-size: 32rpx; font-weight: 600; color: var(--c-title); margin-right: 10rpx;
   }
-  
+
   .age-badge {
-    font-size: 22rpx;
-    color: #0091ff;
-    background: rgba(0, 145, 255, 0.08);
-    padding: 4rpx 14rpx;
-    border-radius: 20rpx;
-    font-weight: 500;
+    font-size: 20rpx; color: var(--c-main-dark);
+    background: var(--c-main-light);
+    padding: 4rpx 12rpx; border-radius: 20rpx; font-weight: 500;
   }
-  
-  .stage-text {
-    font-size: 24rpx;
-    color: #7f8c8d;
-  }
-  
-  .stage-text .highlight {
-    color: #b1d7f5;
-    font-weight: 500;
-  }
-  
-  /* 角色切换按钮 */
+
+  .stage-text { font-size: 22rpx; color: var(--c-hint); }
+  .stage-text .highlight { color: var(--c-main); font-weight: 500; }
+
+  /* 角色切换 — 柔和交互式按钮 */
   .role-switcher {
-    display: flex;
-    align-items: center;
-    padding: 14rpx 24rpx;
-    border-radius: 40rpx;
-    font-size: 24rpx;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+    display: flex; align-items: center;
+    padding: 14rpx 28rpx; border-radius: 24rpx;
+    font-size: 22rpx; font-weight: 600;
+    border: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
   }
-  
+  .role-switcher:active { transform: scale(0.96); }
   .role-switcher.parent {
-    background: #8fcfed;
-    color: #0050b3;
-    border: 1px solid #bae7ff;
+    color: #B07040;
+    background: linear-gradient(135deg, #FDF2E5, #F8E8D5);
+    border: 1px solid #F2D5B8;
   }
-  
   .role-switcher.doctor {
-    background: #f6ffed;
-    color: #389e0d;
-    border: 1px solid #b7eb8f;
+    color: #4B5F8A;
+    background: linear-gradient(135deg, #EDF1FA, #DEE5F5);
+    border: 1px solid #C5D0E8;
   }
-  
-  .role-icon {
-    margin-right: 8rpx;
-    font-size: 28rpx;
+  .role-icon { margin-right: 8rpx; font-size: 26rpx; }
+
+/* ==========================================================================
+   2. 家长端卡片体系
+   ========================================================================== */
+
+  /* 区域底色带 — 打破全白堆叠的 Excel 感 */
+  .section-band {
+    margin: 0;
+    padding: 32rpx 0 12rpx;
   }
-  
-  /* ==========================================================================
-     2. 家长端样式板块
-     ========================================================================== */
-  
-  /* ==========================================================================
-     2. 家长端样式板块
-     ========================================================================== */
+  .section-band.band-green  { background: linear-gradient(180deg, #EDF5F0 0%, #F5F7F5 40%); }
+  .section-band.band-white  { background: #F5F7F5; }
+  .section-band.band-warm   { background: linear-gradient(180deg, #FDF6EE 0%, #F5F7F5 100%); }
+
+  /* 公用卡片基底 */
+  .card-base {
+    margin: 0 32rpx 24rpx 32rpx;
+    padding: 32rpx;
+    background: var(--c-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* 核心数据大卡（第一层级） */
   .growth-core-card {
     margin: 0 32rpx 32rpx 32rpx;
-    padding: 36rpx;
-    background: #ffffff;
-    border-radius: 32rpx;
-    box-shadow: 0 8rpx 24rpx rgba(166, 184, 211, 0.1);
+    padding: 40rpx 36rpx;
+    background: var(--c-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
   }
-  
+
   .card-title-heavy {
-    font-size: 32rpx;
-    font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 28rpx;
-    display: flex;
-    align-items: center;
+    font-size: 30rpx; font-weight: 600; color: var(--c-title);
+    margin-bottom: 24rpx; display: flex; align-items: center;
   }
-  
+
   .growth-item-row {
-    padding: 24rpx 0;
-    border-bottom: 1rpx solid #f0f3f6;
+    padding: 28rpx 0;
+    border-bottom: 1px solid #F0F3F0;
+    overflow: hidden;
   }
-  
-  .growth-item-row.no-border {
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-  
+  .growth-item-row.no-border { border-bottom: none; padding-bottom: 0; }
+
   .item-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16rpx;
-  }
-  
-  .item-icon {
-    font-size: 44rpx;
-    margin-right: 20rpx;
-  }
-  
-  .item-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .item-label {
-    font-size: 28rpx;
-    font-weight: 500;
-    color: #34495e;
-  }
-  
-  .item-desc {
-    font-size: 22rpx;
-    color: #95a5a6;
-    margin-top: 4rpx;
-  }
-  
-  .trend-up { color: #52c41a; font-weight: 500; }
-  .trend-down { color: #f5222d; font-weight: 500; }
-  
-  .item-value-large {
-    font-size: 40rpx;
-    font-weight: 700;
-    color: #2c3e50;
-    font-family: 'DIN Alternate', -apple-system, sans-serif;
-  }
-  
-  .item-unit {
-    font-size: 22rpx;
-    color: #7f8c8d;
-    font-weight: 400;
-    margin-left: 4rpx;
-  }
-  
-  /* 核心指标进度条组件 */
-  .growth-progress-wrapper {
-    height: 10rpx;
-    background: #f0f2f5;
-    border-radius: 5rpx;
-    overflow: hidden;
-    margin-left: 64rpx;
-  }
-  
-  .growth-progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #0091ff, #00c4ff);
-    border-radius: 5rpx;
-    transition: width 0.6s ease;
-  }
-  
-  .growth-progress-bar.bg-purple {
-    background: linear-gradient(90deg, #722ed1, #b37feb);
-  }
-  
-  .growth-progress-bar.bg-green {
-    background: linear-gradient(90deg, #52c41a, #95de64);
-  }
-  
-  /* 多关卡并排迷你进度条 */
-  .multi-progress-line {
-    display: flex;
-    justify-content: space-between;
-    margin-left: 64rpx;
-    margin-top: 16rpx;
-  }
-  
-  .mini-progress {
-    width: 31%;
-    height: 8rpx;
-    background: #f0f2f5;
-    border-radius: 4rpx;
-    overflow: hidden;
-  }
-  
-  .mini-progress .fill {
-    height: 100%;
-    background: #0091ff;
-    border-radius: 4rpx;
-  }
-  
-  /* 可视化图表通用外壳 */
-  .chart-card {
-    margin: 0 32rpx 32rpx 32rpx;
-    padding: 36rpx;
-    background: #ffffff;
-    border-radius: 32rpx;
-    box-shadow: 0 8rpx 24rpx rgba(166, 184, 211, 0.1);
-  }
-  
-  .chart-sub {
-    font-size: 24rpx;
-    color: #95a5a6;
-    line-height: 1.5;
-    display: block;
-    margin-bottom: 30rpx;
-  }
-  
-  /* 成长亮点板块 */
-  .bright-spots-card {
-    margin: 0 32rpx 32rpx 32rpx;
-    padding: 36rpx;
-    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
-    border-radius: 32rpx;
-    box-shadow: 0 8rpx 24rpx rgba(212, 177, 74, 0.08);
-    border: 1px solid rgba(245, 222, 179, 0.4);
-  }
-  
-  .spot-list {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .spot-item {
-    display: flex;
-    align-items: flex-start;
-    margin-bottom: 20rpx;
-    background: rgba(255, 255, 255, 0.7);
-    padding: 20rpx;
-    border-radius: 20rpx;
-  }
-  
-  .spot-item:last-child {
-    margin-bottom: 0;
-  }
-  
-  .spot-emoji {
-    font-size: 36rpx;
-    margin-right: 16rpx;
-    margin-top: -2rpx;
-  }
-  
-  .spot-text {
-    font-size: 26rpx;
-    color: #614d1a;
-    line-height: 1.5;
-    flex: 1;
-  }
-  
-  /* 纯 CSS 认知能力柱状图 */
-  .pure-css-chart {
-    display: flex;
-    height: 280rpx;
-    padding-top: 20rpx;
-  }
-  
-  .chart-axis-y {
-    width: 90rpx;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    font-size: 22rpx;
-    color: #95a5a6;
-    padding-bottom: 50rpx;
-    border-right: 1rpx solid #ecf0f1;
-  }
-  
-  .bars-container {
-    flex: 1;
-    display: flex;
-    justify-content: space-around;
-    align-items: flex-end;
-    padding-left: 20rpx;
-  }
-  
-  .bar-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 20%;
-    height: 100%;
-    justify-content: flex-end;
-  }
-  
-  .bar-fill {
-    width: 32rpx;
-    background: linear-gradient(180deg, #00c4ff, #0091ff);
-    border-radius: 16rpx 16rpx 0 0;
-    min-height: 10rpx;
-    transition: height 1s ease-out;
-  }
-  
-  .bar-fill.warning {
-    background: linear-gradient(180deg, #ffbb96, #ff7a45);
-  }
-  
-  .bar-t {
-    font-size: 22rpx;
-    color: #7f8c8d;
-    margin-top: 16rpx;
-    white-space: nowrap;
-  }
-  
-  /* 唯美医生医嘱同步卡片 */
-  .aesthetic-doctor-card {
-    margin: 0 32rpx 32rpx 32rpx;
-    padding: 36rpx;
-    background: #ffffff;
-    border-radius: 32rpx;
-    box-shadow: 0 8rpx 24rpx rgba(166, 184, 211, 0.1);
-    border-left: 8rpx solid #0091ff;
-  }
-  
-  .doc-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24rpx;
-  }
-  
-  .doc-badge {
-    font-size: 28rpx;
-    font-weight: 600;
-    color: #0091ff;
-  }
-  
-  .doc-timestamp {
-    font-size: 22rpx;
-    color: #bdc3c7;
-  }
-  
-  .doc-speech-bubble {
-    position: relative;
-    padding: 0 20rpx;
-    margin-bottom: 24rpx;
-  }
-  
-  .quote-mark {
-    position: absolute;
-    left: -10rpx;
-    top: -20rpx;
-    font-size: 60rpx;
-    color: #e3edf7;
-    font-family: Georgia, serif;
-  }
-  
-  .bubble-text {
-    font-size: 27rpx;
-    color: #4a5568;
-    line-height: 1.6;
-    position: relative;
-    z-index: 1;
-    display: block;
-    text-align: justify;
-  }
-  
-  .doc-signature {
-    font-size: 24rpx;
-    color: #7f8c8d;
-    text-align: right;
-    font-weight: 500;
-  }
-  
-  /* 居家小任务列表 */
-  .task-card {
-    border-left: 8rpx solid #722ed1;
-  }
-  
-  .task-list {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .task-item {
-    display: flex;
-    align-items: flex-start;
-    margin-bottom: 24rpx;
-  }
-  
-  .task-item:last-child {
-    margin-bottom: 0;
-  }
-  
-  .task-checkbox-mock {
-    width: 36rpx;
-    height: 36rpx;
-    border: 3rpx solid #d9d9d9;
-    border-radius: 10rpx;
-    margin-right: 20rpx;
-    margin-top: 4rpx;
-    background: #fafafa;
-  }
-  
-  .task-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .task-title {
-    font-size: 28rpx;
-    font-weight: 500;
-    color: #2c3e50;
-  }
-  
-  .task-desc {
-    font-size: 24rpx;
-    color: #7f8c8d;
-    margin-top: 6rpx;
-    line-height: 1.4;
-  }
-  
-  /* 渐变情绪温和提示卡 */
-  .care-gradient-card {
-    margin: 0 32rpx 40rpx 32rpx;
-    padding: 36rpx;
-    background: linear-gradient(135deg, #f0f7ff 0%, #f9f1ff 100%);
-    border-radius: 32rpx;
-    box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.02);
-  }
-  
-  .care-title {
-    font-size: 28rpx;
-    font-weight: 600;
-    color: #4b286d;
+    display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 12rpx;
   }
-  
-  .care-body {
-    font-size: 25rpx;
-    color: #6a5380;
-    line-height: 1.6;
-    display: block;
-    text-align: justify;
+
+  .item-icon { font-size: 40rpx; margin-right: 16rpx; }
+
+  .item-info { flex: 1; display: flex; flex-direction: column; }
+
+  .item-label {
+    font-size: 26rpx; font-weight: 500; color: var(--c-title);
   }
-  
-  /* ==========================================================================
-     3. 医生端专属样式板块
-     ========================================================================== */
+
+  .item-desc {
+    font-size: 20rpx; color: var(--c-hint); margin-top: 2rpx;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 380rpx;
+  }
+
+  .trend-up { color: var(--c-good); font-weight: 500; }
+  .trend-down { color: var(--c-bad); font-weight: 500; }
+
+  .item-value-large {
+    font-size: 38rpx; font-weight: 700; color: var(--c-title);
+    font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  }
+  .item-unit { font-size: 20rpx; color: var(--c-hint); font-weight: 400; margin-left: 2rpx; }
+
+  /* 进度条 — 森绿渐变 */
+  .growth-progress-wrapper {
+    height: 8rpx; background: #E8EDEA;
+    border-radius: 4rpx; overflow: hidden; margin-left: 56rpx;
+  }
+  .growth-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--c-main), #7CB9A0);
+    border-radius: 4rpx; transition: width 0.6s ease;
+  }
+  .growth-progress-bar.bg-purple {
+    background: linear-gradient(90deg, #A89CC8, #C4B8DC);
+  }
+  .growth-progress-bar.bg-green {
+    background: linear-gradient(90deg, #87BFAA, #A8D6C3);
+  }
+
+  /* 多关卡迷你进度 */
+  .multi-progress-line {
+    display: flex; justify-content: space-between;
+    margin-left: 56rpx; margin-top: 12rpx;
+  }
+  .mini-progress {
+    width: 31%; height: 6rpx; background: #E8EDEA;
+    border-radius: 3rpx; overflow: hidden;
+  }
+  .mini-progress .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--c-main), #7CB9A0);
+    border-radius: 3rpx;
+  }
+
+  /* 图表卡片（第三层级，略小于核心卡） */
+  .chart-card {
+    margin: 0 32rpx 24rpx 32rpx;
+    padding: 28rpx 24rpx;
+    background: var(--c-white);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+  }
+  .chart-sub { font-size: 22rpx; color: var(--c-hint); line-height: 1.5; display: block; margin-bottom: 24rpx; }
+
+  /* 成长亮点 */
+  .bright-spots-card {
+    margin: 0 32rpx 24rpx 32rpx;
+    padding: 28rpx;
+    background: var(--c-warm-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+  }
+  .spot-list { display: flex; flex-direction: column; }
+  .spot-item {
+    display: flex; align-items: flex-start; margin-bottom: 16rpx;
+    background: rgba(255,255,255,0.6); padding: 16rpx; border-radius: 12rpx;
+  }
+  .spot-item:last-child { margin-bottom: 0; }
+  .spot-emoji { font-size: 32rpx; margin-right: 12rpx; }
+  .spot-text { font-size: 24rpx; color: #6B4D3A; line-height: 1.5; flex: 1; }
+
+  /* 认知能力柱状图 */
+  .pure-css-chart {
+    display: flex; height: 260rpx; padding-top: 16rpx;
+  }
+  .chart-axis-y {
+    width: 80rpx; display: flex; flex-direction: column;
+    justify-content: space-between;
+    font-size: 20rpx; color: var(--c-hint);
+    padding-bottom: 44rpx; border-right: 1px solid #E8EDEA;
+  }
+  .bars-container {
+    flex: 1; display: flex; justify-content: space-around;
+    align-items: flex-end; padding-left: 16rpx;
+  }
+  .bar-item {
+    display: flex; flex-direction: column; align-items: center;
+    width: 20%; height: 100%; justify-content: flex-end;
+  }
+  .bar-fill {
+    width: 28rpx;
+    border-radius: 8rpx 8rpx 0 0;
+    min-height: 8rpx; transition: height 1s ease-out;
+  }
+  /* 四维能力固定色：森绿 / 雾蓝 / 暖杏 / 浅紫 */
+  .bar-fill.dim-sustained { background: linear-gradient(180deg, #7CB9A0, #68A98A); }
+  .bar-fill.dim-selective { background: linear-gradient(180deg, #A0B8E8, #849FD9); }
+  .bar-fill.dim-executive { background: linear-gradient(180deg, #F5CC9E, #F2B888); }
+  .bar-fill.dim-impulse   { background: linear-gradient(180deg, #C0B4D8, #A89CC8); }
+  .bar-t {
+    font-size: 20rpx; color: var(--c-hint); margin-top: 12rpx; white-space: nowrap;
+  }
+
+  /* 医生评语卡片 */
+  .aesthetic-doctor-card {
+    margin: 0 32rpx 24rpx 32rpx;
+    padding: 28rpx;
+    background: var(--c-white);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    border-left: 6rpx solid var(--c-main);
+  }
+  .task-card { border-left: 6rpx solid var(--c-warm); }
+
+  .doc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; }
+  .doc-badge { font-size: 26rpx; font-weight: 600; color: var(--c-main); }
+  .doc-timestamp { font-size: 20rpx; color: var(--c-disabled); }
+
+  .doc-speech-bubble { position: relative; padding: 0 16rpx; margin-bottom: 20rpx; }
+  .quote-mark {
+    position: absolute; left: -8rpx; top: -16rpx;
+    font-size: 52rpx; color: var(--c-main-light); font-family: Georgia, serif;
+  }
+  .bubble-text {
+    font-size: 25rpx; color: var(--c-body); line-height: 1.6;
+    position: relative; z-index: 1; display: block;
+  }
+  .doc-signature { font-size: 22rpx; color: var(--c-hint); text-align: right; font-weight: 500; }
+
+  /* 居家任务 */
+  .task-list { display: flex; flex-direction: column; }
+  .task-item { display: flex; align-items: flex-start; margin-bottom: 20rpx; }
+  .task-item:last-child { margin-bottom: 0; }
+  .task-checkbox-mock {
+    width: 32rpx; height: 32rpx;
+    border: 2rpx solid var(--c-disabled);
+    border-radius: 8rpx; margin-right: 16rpx; margin-top: 2rpx;
+    background: #FAFBFA;
+  }
+  .task-content { flex: 1; display: flex; flex-direction: column; }
+  .task-title { font-size: 26rpx; font-weight: 500; color: var(--c-title); }
+  .task-desc { font-size: 22rpx; color: var(--c-hint); margin-top: 4rpx; line-height: 1.4; }
+
+  /* 温馨提示 */
+  .care-gradient-card {
+    margin: 0 32rpx 32rpx 32rpx;
+    padding: 28rpx;
+    background: linear-gradient(135deg, var(--c-main-light), #F0F5F2);
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  }
+  .care-title { font-size: 26rpx; font-weight: 600; color: var(--c-main-dark); margin-bottom: 10rpx; }
+  .care-body { font-size: 23rpx; color: var(--c-body); line-height: 1.6; display: block; }
+
+/* ==========================================================================
+   3. 医生端卡片
+   ========================================================================== */
   .doctor-panel-card {
     margin: 0 32rpx 32rpx 32rpx;
-    padding: 36rpx;
-    background: #ffffff;
-    border-radius: 32rpx;
-    box-shadow: 0 8rpx 24rpx rgba(166, 184, 211, 0.1);
+    padding: 32rpx 28rpx;
+    background: var(--c-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
   }
-  
-  .medical-data-row {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 24rpx;
-  }
-  
+  /* 三模块左边框色系 */
+  .doctor-panel-card.card-focus     { border-left: 5rpx solid #E8C8C0; }
+  .doctor-panel-card.card-stability { border-left: 5rpx solid #C4B8D8; }
+  .doctor-panel-card.card-table     { border-left: 5rpx solid #D0D4D8; }
+
+  .medical-data-row { display: flex; justify-content: space-between; margin-top: 24rpx; gap: 16rpx; }
   .med-metric-box {
-    width: 48%;
-    background: #f8fafc;
-    padding: 24rpx;
-    border-radius: 20rpx;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .med-label {
-    font-size: 22rpx;
-    color: #64748b;
-  }
-  
-  .med-num-heavy {
-    font-size: 44rpx;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 16rpx 0 8rpx 0;
-    font-family: 'DIN Alternate', sans-serif;
-  }
-  
-  .med-status-indicator {
-    font-size: 20rpx;
-    padding: 4rpx 12rpx;
-    border-radius: 8rpx;
-    display: inline-block;
-    align-self: flex-start;
-  }
-  
-  .med-status-indicator.normal {
-    background: #e2f0d9;
-    color: #385723;
-  }
-  
-  .med-status-indicator.bad {
-    background: #fce4d6;
-    color: #c65911;
-  }
-  
-  .alert-red {
-    color: #ef4444 !important;
-  }
-  
-  /* 医生端学术指标化网格/表格 */
-  .custom-table {
-    width: 100%;
-    border: 1px solid #e2e8f0;
-    border-radius: 16rpx;
-    overflow: hidden;
-  }
-  
-  .table-tr {
-    display: flex;
-    border-bottom: 1px solid #e2e8f0;
-    background: #ffffff;
-  }
-  
-  .table-tr:last-child {
-    border-bottom: none;
-  }
-  
-  .table-th {
-    background: #f1f5f9;
-  }
-  
-  .table-td {
     flex: 1;
-    padding: 20rpx 12rpx;
-    font-size: 24rpx;
-    color: #334155;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .flex-2 {
-    flex: 1.8;
-    text-align: left;
-    justify-content: flex-start;
-    padding-left: 20rpx;
-  }
-  
-  .font-bold {
-    font-weight: 600;
-  }
-  
-  .status-text {
-    font-weight: 500;
-    padding: 2rpx 12rpx;
-    border-radius: 6rpx;
-  }
-  
-  .status-text.green { background: #dcfce7; color: #15803d; }
-  .status-text.orange { background: #ffedd5; color: #c2410c; }
-  
-  .text-trend {
-    font-size: 28rpx;
-    font-weight: 700;
-  }
-  
-  /* 关卡能力细分列表 */
-  .level-distribution-list {
-    display: flex;
-    flex-direction: column;
-    margin-top: 16rpx;
-  }
-  
-  .level-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20rpx 0;
-    border-bottom: 1rpx solid #f1f5f9;
-  }
-  
-  .level-item:last-child {
-    border-bottom: none;
-  }
-  
-  .level-name {
-    font-size: 26rpx;
-    color: #334155;
-    font-weight: 500;
-  }
-  
-  .level-score {
-    font-size: 24rpx;
-    color: #64748b;
-  }
-  
-  .level-score .bold {
-    font-weight: 600;
-    color: #0f172a;
-  }
-  
-  /* 智能评语生成与文本框 */
-  .system-auto-conclusion {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    padding: 20rpx;
-    border-radius: 16rpx;
-    margin-top: 16rpx;
-  }
-  
-  .conclusion-text {
-    font-size: 25rpx;
-    color: #1e40af;
-    line-height: 1.5;
-  }
-  
-  .modern-textarea {
-    width: 100%;
-    height: 180rpx;
-    background: #f8fafc;
-    border: 1px solid #cbd5e1;
-    border-radius: 16rpx;
-    margin-top: 16rpx;
-    padding: 20rpx;
+    background: #FFFFFF;
+    padding: 28rpx 24rpx;
+    border-radius: 12px;
+    border: 1px solid #E8EDEA;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
     box-sizing: border-box;
-    font-size: 26rpx;
-    color: #334155;
-    line-height: 1.5;
+    display: flex; flex-direction: column;
+    position: relative;
   }
-  
-  .template-section {
-    margin-top: 24rpx;
+  .med-label {
+    font-size: 22rpx; color: #888888; font-weight: 400;
+    margin-bottom: 8rpx;
   }
-  
-  .section-tag {
-    font-size: 24rpx;
-    color: #64748b;
+  .med-num-heavy {
+    font-size: 48rpx; font-weight: 700; color: #2A2A2A;
+    margin: 8rpx 0;
+    font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    line-height: 1;
   }
-  
-  .tags-group {
-    display: flex;
-    flex-wrap: wrap;
-    margin-top: 12rpx;
+  .med-num-heavy.val-high  { color: #68A98A; }
+  .med-num-heavy.val-mid   { color: #F2B888; }
+  .med-num-heavy.val-low   { color: #D98A78; }
+  .med-num-heavy.val-peak  { color: #A89CC8; }
+  /* 迷你进度指示条 */
+  .med-mini-bar-wrap { height: 4rpx; background: #F0F3F0; border-radius: 2rpx; margin-top: 12rpx; overflow: hidden; }
+  .med-mini-bar { height: 100%; border-radius: 2rpx; }
+  .med-mini-bar.green  { background: linear-gradient(90deg, #68A98A, #7CB9A0); width: var(--bar-w, 50%); }
+  .med-mini-bar.blue   { background: linear-gradient(90deg, #849FD9, #A0B8E8); width: var(--bar-w, 50%); }
+  .med-status-indicator {
+    font-size: 18rpx; padding: 4rpx 10rpx; border-radius: 6rpx;
+    display: inline-block; align-self: flex-start;
   }
-  
+  .med-status-indicator.normal { background: var(--c-main-light); color: var(--c-main-dark); }
+  .med-status-indicator.bad { background: #FDF0EA; color: #C07058; }
+  .alert-red { color: var(--c-bad) !important; }
+
+  /* 内联单位文字 */
+  .med-unit-inline { font-size: 22rpx; font-weight: 400; color: #888; }
+
+  /* 提示小字 */
+  .hint-tip { font-size: 18rpx; color: #AAA; font-weight: 400; }
+  .hint-warn { font-size: 18rpx; color: #D98A78; background: #FDF0EA; padding: 2rpx 8rpx; border-radius: 6rpx; font-weight: 500; }
+
+  /* 分区圆点标识 */
+  .section-dot { display: inline-block; width: 10rpx; height: 10rpx; border-radius: 50%; margin-right: 10rpx; }
+  .section-dot.dot-rose  { background: #E8C8C0; }
+  .section-dot.dot-purple { background: #C4B8D8; }
+  .section-dot.dot-gray  { background: #D0D4D8; }
+
+  /* 3段式进度条 */
+  .bar-3zone { background: linear-gradient(90deg, #F2B888 0%, #F2B888 50%, #87BFAA 50%, #87BFAA 75%, #849FD9 75%, #849FD9 100%); }
+  .med-mini-bar-fill { height: 100%; background: rgba(255,255,255,0.5); border-radius: 2rpx; border-right: 2px solid rgba(0,0,0,0.15); }
+  .bar-zone-labels { display: flex; justify-content: space-between; font-size: 16rpx; color: #AAA; margin-top: 2rpx; }
+  .bar-zone-labels .zone-mid { position: absolute; left: 50%; transform: translateX(-50%); }
+
+  /* 宽盒子 */
+  .med-metric-box.med-wide { width: 100%; }
+  .med-metric-box.med-emphasis { border-left: 3px solid #D98A78; padding-left: 20rpx; background: #FFFBF9; }
+  .med-metric-box.med-split { flex: 1; }
+
+  /* CV 色带 + 游标 */
+  .cv-band { width: 100%; height: 8rpx; background: linear-gradient(90deg, #68A98A 0%, #F2B888 50%, #D98A78 100%); border-radius: 4rpx; margin-top: 12rpx; position: relative; }
+  .cv-marker { position: absolute; top: -3rpx; width: 14rpx; height: 14rpx; background: #2A2A2A; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transform: translateX(-50%); }
+  .cv-band-ticks { display: flex; justify-content: space-between; margin-top: 6rpx; font-size: 16rpx; color: #AAA; }
+  .cv-band-ticks .cv-threshold { color: #D98A78; font-weight: 500; }
+
+  /* 迷你条色彩体系 */
+  .med-mini-bar.green  { background: linear-gradient(90deg, #68A98A, #7CB9A0); }
+  .med-mini-bar.blue   { background: linear-gradient(90deg, #849FD9, #A0B8E8); }
+  .med-mini-bar.warm   { background: linear-gradient(90deg, #F2B888, #E8A870); }
+  .med-mini-bar.purple { background: linear-gradient(90deg, #A89CC8, #C4B8DC); }
+  .med-mini-bar.red    { background: linear-gradient(90deg, #D98A78, #E8A898); }
+  .med-mini-bar.yellow { background: linear-gradient(90deg, #F2B888, #F5CC9E); }
+  .med-mini-bar.gray   { background: linear-gradient(90deg, #CCCCCC, #DDDDDD); }
+
+  /* 表格 */
+  .custom-table { width: 100%; border: 1px solid #E8EDEA; border-radius: 12rpx; overflow: hidden; }
+  .table-tr { display: flex; border-bottom: 1px solid #E8EDEA; background: var(--c-white); }
+  .table-tr:last-child { border-bottom: none; }
+  .table-th { background: var(--c-main-light); }
+  .table-td {
+    flex: 1; padding: 16rpx 10rpx; font-size: 22rpx; color: var(--c-body);
+    text-align: center; display: flex; align-items: center; justify-content: center;
+  }
+  .flex-2 { flex: 1.8; text-align: left; justify-content: flex-start; padding-left: 16rpx; }
+  .font-bold { font-weight: 600; }
+  .status-text { font-weight: 500; padding: 2rpx 10rpx; border-radius: 4rpx; }
+  .status-text.green { background: var(--c-main-light); color: var(--c-main-dark); }
+  .status-text.orange { background: var(--c-warm-light); color: #B07040; }
+  .text-trend { font-size: 26rpx; font-weight: 700; }
+
+  /* 分数数字 */
+  .score-num { font-weight: 700; font-size: 26rpx; color: #2A2A2A; }
+
+  /* 等级色块标签 */
+  .level-tag { display: inline-block; padding: 4rpx 16rpx; border-radius: 8rpx; font-size: 22rpx; font-weight: 600; }
+  .level-tag.lv-good { background: #D4EDDA; color: #2D6A4F; }
+  .level-tag.lv-ok   { background: #FFF3CD; color: #856404; }
+  .level-tag.lv-bad  { background: #F8D7DA; color: #721C24; }
+
+  /* 趋势图标 */
+  .trend-icon { font-size: 26rpx; font-weight: 700; }
+  .trend-icon.t-up   { color: #2D6A4F; }
+  .trend-icon.t-flat { color: #856404; }
+  .trend-icon.t-down { color: #721C24; }
+
+  /* 关卡分布 */
+  .level-distribution-list { display: flex; flex-direction: column; margin-top: 12rpx; }
+  .level-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16rpx 0; border-bottom: 1px solid #F0F3F0;
+  }
+  .level-item:last-child { border-bottom: none; }
+  .level-name { font-size: 24rpx; color: var(--c-body); font-weight: 500; }
+  .level-score { font-size: 22rpx; color: var(--c-hint); }
+  .level-score .bold { font-weight: 600; color: var(--c-title); }
+
+  /* 自动评估文本区 */
+  .system-auto-conclusion {
+    background: var(--c-blue-light); border: 1px solid #D0DAF0;
+    padding: 16rpx; border-radius: 12rpx; margin-top: 12rpx;
+  }
+  .conclusion-text { font-size: 23rpx; color: #3B4F78; line-height: 1.5; }
+
+  .modern-textarea {
+    width: 100% !important; height: 180rpx;
+    background: #F8FAF9; border: 1px solid #C8D6CE;
+    border-radius: var(--radius-sm); margin-top: 12rpx;
+    padding: 16rpx; box-sizing: border-box;
+    font-size: 24rpx; color: var(--c-body); line-height: 1.5;
+  }
+
+  .template-section { margin-top: 20rpx; }
+  .section-tag { font-size: 22rpx; color: var(--c-hint); }
+  .tags-group { display: flex; flex-wrap: wrap; margin-top: 10rpx; }
+
   .action-tag {
-    font-size: 22rpx;
-    color: #475569;
-    background: #f1f5f9;
-    padding: 10rpx 20rpx;
-    border-radius: 30rpx;
-    margin-right: 16rpx;
-    margin-bottom: 16rpx;
-    border: 1px solid #e2e8f0;
+    font-size: 20rpx; color: var(--c-body);
+    background: transparent; border: 1px solid #C8D6CE;
+    padding: 8rpx 16rpx; border-radius: 20rpx;
+    margin-right: 12rpx; margin-bottom: 12rpx;
   }
-  
-  .action-tag:active {
-    background: #e2e8f0;
-  }
-  
+  .action-tag:active { background: var(--c-main-light); border-color: var(--c-main); }
+
+  /* 按钮 — 森绿渐变 */
   .premium-submit-btn {
-    margin-top: 32rpx;
-    width: 100% !important;
-    background: linear-gradient(135deg, #0091ff 0%, #0070cc 100%);
-    color: #ffffff;
-    border-radius: 20rpx;
-    font-size: 28rpx;
-    font-weight: 600;
-    padding: 24rpx 0;
-    box-shadow: 0 8rpx 24rpx rgba(0, 145, 255, 0.3);
+    margin-top: 24rpx; width: 100% !important;
+    background: linear-gradient(135deg, var(--c-main) 0%, #7CB9A0 100%);
+    color: #fff; border-radius: var(--radius-sm);
+    font-size: 26rpx; font-weight: 600; padding: 20rpx 0;
+    box-shadow: 0 2px 8px rgba(104,169,138,0.15);
   }
-  
-  /* ==========================================================================
-     4. 全局数据加载态（医疗级链路拉取）
-     ========================================================================== */
+
+/* ==========================================================================
+   4. 图表容器
+   ========================================================================== */
+  .parent-chart-container {
+    width: 100% !important; height: 440rpx !important;
+    position: relative !important; display: block !important;
+    margin: 16rpx 0 !important; box-sizing: border-box !important;
+  }
+  .doctor-chart-container {
+    width: 100% !important; height: 420rpx !important;
+    position: relative !important; display: block !important;
+    margin: 16rpx 0 !important; box-sizing: border-box !important;
+  }
+  ec-canvas { width: 100% !important; height: 100% !important; display: block !important; }
+  ec-canvas canvas { width: 100% !important; height: 100% !important; display: block !important; }
+
+/* ==========================================================================
+   5. 加载态
+   ========================================================================== */
   .loading-container {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #ffffff;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--c-white);
   }
-  
   .pulse-loader {
-    width: 80rpx;
-    height: 80rpx;
-    border-radius: 50%;
-    background: #0091ff;
+    width: 72rpx; height: 72rpx; border-radius: 50%;
+    background: var(--c-main);
     animation: pulseBg 1.8s infinite ease-in-out;
   }
-  
   @keyframes pulseBg {
     0% { transform: scale(0.6); opacity: 0.1; }
     50% { transform: scale(1.1); opacity: 1; }
     100% { transform: scale(0.6); opacity: 0.1; }
   }
-  
-  /* ✨ 修复：补充了残缺的文本大小限制和右大括号 */
-  .load-text {
-    font-size: 26rpx;
-    color: #7f8c8d;
-    margin-top: 24rpx;
-  }
-  /* ========================================================
-   🚨 终极图表强力撑开样式 - 严禁删除 (防止 Canvas 0px 高度坍塌)
-   ======================================================== */
-
-/* 家长端图表容器 */
-.parent-chart-container {
-  width: 100% !important;
-  height: 520rpx !important;  /* 强行给予确定的物理空间 */
-  position: relative !important;
-  display: block !important;
-  margin: 20rpx 0 !important;
-  box-sizing: border-box !important;
-}
-
-/* 医生端图表容器 */
-.doctor-chart-container {
-  width: 100% !important;
-  height: 480rpx !important;  /* 雷达图需要的物理空间 */
-  position: relative !important;
-  display: block !important;
-  margin: 24rpx 0 !important;
-  box-sizing: border-box !important;
-}
-
-/* 🚨 触及微信自定义组件核心：强行撑满全局底层 Canvas */
-ec-canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
-}
-
-/* 兼容部分低版本真机内核的内部 canvas 画布 */
-ec-canvas canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
-}
+  .load-text { font-size: 24rpx; color: var(--c-hint); margin-top: 20rpx; }
