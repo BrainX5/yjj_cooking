@@ -55,6 +55,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
     private Canvas debugCanvas;
     private Text debugStatusText;
     private Text debugHintText;
+    private Font debugUiFont;
     private float sessionStartTime;
     private float sampleTimer;
     private float lowAttentionDuration;
@@ -423,6 +424,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         }
 
         EnsureEventSystem();
+        ResolveDebugUiFont();
 
         var canvasObject = new GameObject("MiniProgram Upload Debug UI");
         canvasObject.transform.SetParent(transform, false);
@@ -440,10 +442,10 @@ public class MiniProgramGameDataManager : MonoBehaviour
 
         var panel = CreateUiObject("Panel", canvasObject.transform);
         var panelRect = panel.AddComponent<RectTransform>();
-        panelRect.anchorMin = new Vector2(1f, 1f);
-        panelRect.anchorMax = new Vector2(1f, 1f);
-        panelRect.pivot = new Vector2(1f, 1f);
-        panelRect.anchoredPosition = new Vector2(-20f, -20f);
+        panelRect.anchorMin = new Vector2(1f, 0f);
+        panelRect.anchorMax = new Vector2(1f, 0f);
+        panelRect.pivot = new Vector2(1f, 0f);
+        panelRect.anchoredPosition = new Vector2(-20f, 20f);
         panelRect.sizeDelta = new Vector2(360f, 180f);
 
         var panelImage = panel.AddComponent<Image>();
@@ -537,7 +539,7 @@ public class MiniProgramGameDataManager : MonoBehaviour
         rect.sizeDelta = size;
 
         var text = textObject.AddComponent<Text>();
-        text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        text.font = debugUiFont ?? ResolveFallbackFont();
         text.fontSize = fontSize;
         text.fontStyle = fontStyle;
         text.alignment = TextAnchor.UpperLeft;
@@ -547,6 +549,34 @@ public class MiniProgramGameDataManager : MonoBehaviour
         text.text = value;
 
         return text;
+    }
+
+    private void ResolveDebugUiFont()
+    {
+        if (debugUiFont != null)
+        {
+            return;
+        }
+
+        debugUiFont = Font.CreateDynamicFontFromOSFont(
+            new[] { "Microsoft YaHei", "SimHei", "SimSun", "Arial Unicode MS", "Arial" },
+            24);
+        if (debugUiFont == null)
+        {
+            debugUiFont = ResolveFallbackFont();
+        }
+    }
+
+    private Font ResolveFallbackFont()
+    {
+        try
+        {
+            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
     }
 
     private void CreateButton(
