@@ -66,6 +66,10 @@ public class GameplayMetricsTracker : MonoBehaviour
 
     private void Start()
     {
+        // 延迟查找：Awake 时 soupGame 可能尚未初始化
+        if (soupGame == null)
+            soupGame = FindObjectOfType<MushroomSoupGame>();
+
         gameplayInput = HybridBciGameplayInput.Instance;
         if (gameplayInput == null)
             gameplayInput = FindObjectOfType<HybridBciGameplayInput>();
@@ -106,6 +110,16 @@ public class GameplayMetricsTracker : MonoBehaviour
     public void SubmitCurrentSession()
     {
         if (!isTracking) return;
+
+        // 如果没有收集到任何采样数据，跳过提交（防止全 0 数据入库）
+        if (attentionSamples.Count == 0)
+        {
+            Debug.LogWarning("[MetricsTracker] ⚠️ 无采样数据，跳过提交（场景可能未正常运行）");
+            isTracking = false;
+            gameCompleted = true;
+            return;
+        }
+
         isTracking = false;
         gameCompleted = true;
 
@@ -185,6 +199,10 @@ public class GameplayMetricsTracker : MonoBehaviour
     private void CheckGameCompletion()
     {
         if (gameCompleted) return;
+
+        // 至少收集 2 秒样本才允许提交，防止空数据入库
+        if (attentionSamples.Count < 60)
+            return;
 
         // 自动模式：30s 无游戏引用时自动提交（方便测试）
         if (soupGame == null)
