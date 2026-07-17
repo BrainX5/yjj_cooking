@@ -2265,7 +2265,7 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         audioController.SetCookingMode(ShouldEnableFocusMusicMode());
-        audioController.UpdateFocusFeedback(GetCurrentAttentionValue(), CanUsePlatformInput());
+        audioController.UpdateFocusFeedback(GetFocusAudioFeedbackValue(), HasDynamicFocusAudioFeedback());
     }
 
     private bool ShouldEnableFocusMusicMode()
@@ -2281,6 +2281,83 @@ public class MushroomSoupGame : MonoBehaviour
         }
 
         return dishPhase == DishPhase.FishCatch && playerNearRiver;
+    }
+
+    private float GetFocusAudioFeedbackValue()
+    {
+        var liveAttention = GetCurrentAttentionValue();
+        if (liveAttention >= 0f && CanUsePlatformInput())
+        {
+            return liveAttention;
+        }
+
+        switch (dishPhase)
+        {
+            case DishPhase.MushroomSoup:
+                return GetSoupFocusAudioProxyValue();
+            case DishPhase.FishCatch:
+                return Mathf.Lerp(46f, 88f, Mathf.Clamp01(fishGrip / Mathf.Max(0.01f, fishGripThreshold)));
+            case DishPhase.FriedFish:
+                return GetFriedFishFocusAudioProxyValue();
+            case DishPhase.Completed:
+                return 82f;
+            default:
+                return 55f;
+        }
+    }
+
+    private bool HasDynamicFocusAudioFeedback()
+    {
+        return ShouldEnableFocusMusicMode();
+    }
+
+    private float GetSoupFocusAudioProxyValue()
+    {
+        var fireFactor = Mathf.Clamp01(firePower / Mathf.Max(0.01f, maxFirePower));
+        var progressFactor = Mathf.Clamp01(cookProgress);
+        var mushroomFactor = Mathf.Clamp01((harvestedMushroomCount + mushroomsAdded) / Mathf.Max(1f, mushroomsNeeded));
+
+        switch (soupStage)
+        {
+            case SoupStage.NeedMushroom:
+                return Mathf.Lerp(34f, 68f, mushroomFactor);
+            case SoupStage.HeatingToQuarter:
+            case SoupStage.HeatingToHalf:
+            case SoupStage.HeatingToThreeQuarters:
+            case SoupStage.HeatingToDone:
+                return Mathf.Lerp(42f, 86f, Mathf.Clamp01(fireFactor * 0.65f + progressFactor * 0.35f));
+            case SoupStage.NeedFirstStir:
+            case SoupStage.NeedSecondStir:
+                return Mathf.Lerp(58f, 78f, progressFactor);
+            case SoupStage.Completed:
+                return 82f;
+            default:
+                return 50f;
+        }
+    }
+
+    private float GetFriedFishFocusAudioProxyValue()
+    {
+        var fireFactor = Mathf.Clamp01(firePower / Mathf.Max(0.01f, maxFirePower));
+        var progressFactor = Mathf.Clamp01(cookProgress);
+
+        switch (friedFishStage)
+        {
+            case FriedFishStage.ReturnToFire:
+                return 40f;
+            case FriedFishStage.HeatingToHalf:
+            case FriedFishStage.HeatingToThreeQuarters:
+            case FriedFishStage.HeatingToDone:
+                return Mathf.Lerp(45f, 88f, Mathf.Clamp01(fireFactor * 0.7f + progressFactor * 0.3f));
+            case FriedFishStage.NeedFlip:
+                return 66f;
+            case FriedFishStage.NeedSeasoning:
+                return 72f;
+            case FriedFishStage.Completed:
+                return 84f;
+            default:
+                return 52f;
+        }
     }
 
     private void ResolveGameplayInput()

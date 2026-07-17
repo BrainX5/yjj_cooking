@@ -532,6 +532,8 @@ public class CookingAudioController : MonoBehaviour
         fireLoopOverrideClip = fireLoopOverrideClip != null ? fireLoopOverrideClip : LoadClip("fire_loop");
         forestAmbienceClip = forestAmbienceClip != null ? forestAmbienceClip : LoadClip("forest_ambience_loop");
         riverLoopClip = riverLoopClip != null ? riverLoopClip : LoadClip("river_loop");
+        walkingBgmClipOverride = walkingBgmClipOverride != null ? walkingBgmClipOverride : LoadClip("bgm");
+        focusBgmClipOverride = focusBgmClipOverride != null ? focusBgmClipOverride : LoadClip("Gentle Focus");
     }
 
     private AudioClip LoadClip(string clipName)
@@ -547,13 +549,6 @@ public class CookingAudioController : MonoBehaviour
         }
 
         focusMusicLoadRequested = true;
-
-        walkingBgmClipOverride = walkingBgmClipOverride != null
-            ? walkingBgmClipOverride
-            : null;
-        focusBgmClipOverride = focusBgmClipOverride != null
-            ? focusBgmClipOverride
-            : null;
 
         if (walkingBgmClipOverride == null)
         {
