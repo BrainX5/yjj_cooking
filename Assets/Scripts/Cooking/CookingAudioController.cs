@@ -44,8 +44,8 @@ public class CookingAudioController : MonoBehaviour
 
     [Header("Mix")]
     [SerializeField] private float masterVolume = 0.45f;
-    [SerializeField] private float forestAmbienceVolume = 0.32f;
-    [SerializeField] private float riverLoopVolume = 0.26f;
+    [SerializeField] private float forestAmbienceVolume = 0f;
+    [SerializeField] private float riverLoopVolume = 0.14f;
     [SerializeField] private float walkingBgmVolume = 0.72f;
     [SerializeField] private float focusMinVolume = 0.5f;
     [SerializeField] private float focusMaxVolume = 0.8f;
@@ -129,9 +129,9 @@ public class CookingAudioController : MonoBehaviour
         forestLoopSource.playOnAwake = false;
         forestLoopSource.loop = true;
         forestLoopSource.spatialBlend = 0f;
-        forestLoopSource.volume = forestAmbienceVolume * masterVolume;
+        forestLoopSource.volume = 0f;
         forestLoopSource.clip = forestAmbienceClip;
-        if (forestLoopSource.clip != null)
+        if (forestLoopSource.clip != null && forestAmbienceVolume > 0.001f)
         {
             forestLoopSource.Play();
         }
