@@ -59,6 +59,9 @@ public class CookingAudioController : MonoBehaviour
     [SerializeField] private float lowBandSmoothingSeconds = 5f;
     [SerializeField] private float midBandSmoothingSeconds = 3f;
     [SerializeField] private float highBandSmoothingSeconds = 2f;
+    [SerializeField] private float lowAttentionPitch = 0.82f;
+    [SerializeField] private float midAttentionPitch = 1f;
+    [SerializeField] private float highAttentionPitch = 1.08f;
 
     private readonly Dictionary<ProceduralSound, AudioClip> generatedClips = new Dictionary<ProceduralSound, AudioClip>();
     private AudioSource audioSource;
@@ -79,10 +82,12 @@ public class CookingAudioController : MonoBehaviour
     private float targetFocusCutoffFrequency;
     private float currentFocusFeedbackVolume;
     private float currentFocusCutoffFrequency;
+    private float currentFocusPitch = 1f;
     private float walkingVolumeVelocity;
     private float focusMusicVolumeVelocity;
     private float focusFeedbackVolumeVelocity;
     private float focusCutoffVelocity;
+    private float focusPitchVelocity;
 
     public static CookingAudioController Instance
     {
@@ -148,6 +153,7 @@ public class CookingAudioController : MonoBehaviour
         currentFocusFeedbackVolume = Mathf.Lerp(focusMinVolume, focusMaxVolume, 0.6f);
         targetFocusFeedbackVolume = currentFocusFeedbackVolume;
         targetWalkingVolume = walkingBgmVolume * masterVolume;
+        currentFocusPitch = midAttentionPitch;
 
         StartCoroutine(LoadFocusMusicClips());
     }
@@ -671,6 +677,7 @@ public class CookingAudioController : MonoBehaviour
         var normalizedAttention = hasAttentionFeedback
             ? Mathf.Clamp01(currentAttentionValue / 100f)
             : Mathf.InverseLerp(0f, 100f, lowAttentionThreshold);
+        var targetPitch = ResolveFocusPitch(currentAttentionValue, normalizedAttention);
 
         targetFocusCutoffFrequency = Mathf.Lerp(
             focusMinCutoffFrequency,
@@ -696,10 +703,22 @@ public class CookingAudioController : MonoBehaviour
             smoothingSeconds,
             Mathf.Infinity,
             Time.unscaledDeltaTime);
+        currentFocusPitch = Mathf.SmoothDamp(
+            currentFocusPitch,
+            targetPitch,
+            ref focusPitchVelocity,
+            smoothingSeconds,
+            Mathf.Infinity,
+            Time.unscaledDeltaTime);
 
         if (focusLowPassFilter != null)
         {
             focusLowPassFilter.cutoffFrequency = currentFocusCutoffFrequency;
+        }
+
+        if (focusMusicSource != null)
+        {
+            focusMusicSource.pitch = currentFocusPitch;
         }
 
         RefreshMusicTargets();
@@ -743,5 +762,28 @@ public class CookingAudioController : MonoBehaviour
         }
 
         return Mathf.Max(0.05f, lowBandSmoothingSeconds);
+    }
+
+    private float ResolveFocusPitch(float attentionValue, float normalizedAttention)
+    {
+        if (attentionValue <= 0f)
+        {
+            return Mathf.Lerp(lowAttentionPitch, midAttentionPitch, normalizedAttention);
+        }
+
+        if (attentionValue < lowAttentionThreshold)
+        {
+            var lowNormalized = Mathf.InverseLerp(0f, lowAttentionThreshold, attentionValue);
+            return Mathf.Lerp(lowAttentionPitch, midAttentionPitch, lowNormalized);
+        }
+
+        if (attentionValue < highAttentionThreshold)
+        {
+            var midNormalized = Mathf.InverseLerp(lowAttentionThreshold, highAttentionThreshold, attentionValue);
+            return Mathf.Lerp(midAttentionPitch, 1.03f, midNormalized);
+        }
+
+        var highNormalized = Mathf.InverseLerp(highAttentionThreshold, 100f, attentionValue);
+        return Mathf.Lerp(1.03f, highAttentionPitch, highNormalized);
     }
 }
