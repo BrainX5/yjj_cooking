@@ -1,5 +1,8 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 
 [RequireComponent(typeof(AudioSource))]
 public class CookingAudioController : MonoBehaviour
@@ -36,18 +39,50 @@ public class CookingAudioController : MonoBehaviour
     [SerializeField] private AudioClip fireLoopOverrideClip;
     [SerializeField] private AudioClip forestAmbienceClip;
     [SerializeField] private AudioClip riverLoopClip;
+    [SerializeField] private AudioClip walkingBgmClipOverride;
+    [SerializeField] private AudioClip focusBgmClipOverride;
 
     [Header("Mix")]
     [SerializeField] private float masterVolume = 0.45f;
     [SerializeField] private float forestAmbienceVolume = 0.32f;
     [SerializeField] private float riverLoopVolume = 0.26f;
+    [SerializeField] private float walkingBgmVolume = 0.72f;
+    [SerializeField] private float focusMinVolume = 0.5f;
+    [SerializeField] private float focusMaxVolume = 0.8f;
+
+    [Header("Focus Music Feedback")]
+    [SerializeField] private float musicFadeDuration = 2f;
+    [SerializeField] private float focusMinCutoffFrequency = 800f;
+    [SerializeField] private float focusMaxCutoffFrequency = 8000f;
+    [SerializeField] private float lowAttentionThreshold = 60f;
+    [SerializeField] private float highAttentionThreshold = 80f;
+    [SerializeField] private float lowBandSmoothingSeconds = 5f;
+    [SerializeField] private float midBandSmoothingSeconds = 3f;
+    [SerializeField] private float highBandSmoothingSeconds = 2f;
 
     private readonly Dictionary<ProceduralSound, AudioClip> generatedClips = new Dictionary<ProceduralSound, AudioClip>();
     private AudioSource audioSource;
     private AudioSource fireLoopSource;
     private AudioSource forestLoopSource;
     private AudioSource riverLoopSource;
+    private AudioSource walkingMusicSource;
+    private AudioSource focusMusicSource;
+    private AudioLowPassFilter focusLowPassFilter;
     private AudioClip fireLoopClip;
+    private bool cookingMode;
+    private bool hasAttentionFeedback;
+    private bool focusMusicLoadRequested;
+    private float currentAttentionValue;
+    private float targetWalkingVolume;
+    private float targetFocusMusicVolume;
+    private float targetFocusFeedbackVolume;
+    private float targetFocusCutoffFrequency;
+    private float currentFocusFeedbackVolume;
+    private float currentFocusCutoffFrequency;
+    private float walkingVolumeVelocity;
+    private float focusMusicVolumeVelocity;
+    private float focusFeedbackVolumeVelocity;
+    private float focusCutoffVelocity;
 
     public static CookingAudioController Instance
     {
@@ -102,6 +137,25 @@ public class CookingAudioController : MonoBehaviour
         riverLoopSource.spatialBlend = 0f;
         riverLoopSource.volume = 0f;
         riverLoopSource.clip = riverLoopClip;
+
+        walkingMusicSource = CreateChildLoopSource("行走背景音乐");
+        focusMusicSource = CreateChildLoopSource("专注模式音乐");
+        focusLowPassFilter = focusMusicSource.gameObject.AddComponent<AudioLowPassFilter>();
+        currentFocusCutoffFrequency = focusMaxCutoffFrequency;
+        targetFocusCutoffFrequency = currentFocusCutoffFrequency;
+        focusLowPassFilter.cutoffFrequency = currentFocusCutoffFrequency;
+
+        currentFocusFeedbackVolume = Mathf.Lerp(focusMinVolume, focusMaxVolume, 0.6f);
+        targetFocusFeedbackVolume = currentFocusFeedbackVolume;
+        targetWalkingVolume = walkingBgmVolume * masterVolume;
+
+        StartCoroutine(LoadFocusMusicClips());
+    }
+
+    private void Update()
+    {
+        UpdateFocusFeedbackTargets();
+        UpdateMusicMixing();
     }
 
     public void PlayPickup()
@@ -205,6 +259,25 @@ public class CookingAudioController : MonoBehaviour
     public void PlayUiClose()
     {
         PlayClipOrGenerated(uiCloseClip, ProceduralSound.UiClose, 0.42f);
+    }
+
+    public void SetCookingMode(bool enabled)
+    {
+        if (cookingMode == enabled)
+        {
+            return;
+        }
+
+        cookingMode = enabled;
+        RefreshMusicTargets();
+        EnsureMusicPlaybackState();
+    }
+
+    public void UpdateFocusFeedback(float attentionValue, bool hasLiveAttention)
+    {
+        currentAttentionValue = Mathf.Clamp(attentionValue, 0f, 100f);
+        hasAttentionFeedback = hasLiveAttention;
+        RefreshMusicTargets();
     }
 
     private void PlayClipOrGenerated(AudioClip clip, ProceduralSound sound, float volume)
@@ -464,5 +537,216 @@ public class CookingAudioController : MonoBehaviour
     private AudioClip LoadClip(string clipName)
     {
         return Resources.Load<AudioClip>($"Audio/Cooking/{clipName}");
+    }
+
+    private IEnumerator LoadFocusMusicClips()
+    {
+        if (focusMusicLoadRequested)
+        {
+            yield break;
+        }
+
+        focusMusicLoadRequested = true;
+
+        walkingBgmClipOverride = walkingBgmClipOverride != null
+            ? walkingBgmClipOverride
+            : null;
+        focusBgmClipOverride = focusBgmClipOverride != null
+            ? focusBgmClipOverride
+            : null;
+
+        if (walkingBgmClipOverride == null)
+        {
+            yield return LoadExternalClip("bgm.mp3", clip => walkingBgmClipOverride = clip);
+        }
+
+        if (focusBgmClipOverride == null)
+        {
+            yield return LoadExternalClip("Gentle Focus.mp3", clip => focusBgmClipOverride = clip);
+        }
+
+        walkingMusicSource.clip = walkingBgmClipOverride;
+        focusMusicSource.clip = focusBgmClipOverride;
+
+        RefreshMusicTargets();
+        EnsureMusicPlaybackState();
+    }
+
+    private IEnumerator LoadExternalClip(string fileName, System.Action<AudioClip> assignClip)
+    {
+        var path = ResolveExternalAudioPath(fileName);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            Debug.LogWarning($"CookingAudioController could not find external music file: {fileName}", this);
+            yield break;
+        }
+
+        using (var request = UnityWebRequestMultimedia.GetAudioClip(new System.Uri(path).AbsoluteUri, AudioType.MPEG))
+        {
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning($"CookingAudioController failed to load {fileName}: {request.error}", this);
+                yield break;
+            }
+
+            var clip = DownloadHandlerAudioClip.GetContent(request);
+            if (clip == null)
+            {
+                Debug.LogWarning($"CookingAudioController loaded an empty clip for {fileName}.", this);
+                yield break;
+            }
+
+            clip.name = Path.GetFileNameWithoutExtension(fileName);
+            assignClip?.Invoke(clip);
+        }
+    }
+
+    private string ResolveExternalAudioPath(string fileName)
+    {
+        var candidates = new List<string>();
+        var currentDirectory = Directory.GetCurrentDirectory();
+        if (!string.IsNullOrWhiteSpace(currentDirectory))
+        {
+            candidates.Add(Path.Combine(currentDirectory, fileName));
+        }
+
+        var dataDirectory = Application.dataPath;
+        if (!string.IsNullOrWhiteSpace(dataDirectory))
+        {
+            candidates.Add(Path.Combine(dataDirectory, fileName));
+
+            var parentDirectory = Directory.GetParent(dataDirectory);
+            if (parentDirectory != null)
+            {
+                candidates.Add(Path.Combine(parentDirectory.FullName, fileName));
+            }
+        }
+
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            if (File.Exists(candidates[i]))
+            {
+                return candidates[i];
+            }
+        }
+
+        return null;
+    }
+
+    private void RefreshMusicTargets()
+    {
+        targetWalkingVolume = cookingMode ? 0f : walkingBgmVolume * masterVolume;
+        targetFocusMusicVolume = cookingMode ? currentFocusFeedbackVolume * masterVolume : 0f;
+    }
+
+    private AudioSource CreateChildLoopSource(string childName)
+    {
+        var child = new GameObject(childName);
+        child.transform.SetParent(transform, false);
+
+        var source = child.AddComponent<AudioSource>();
+        source.playOnAwake = false;
+        source.loop = true;
+        source.spatialBlend = 0f;
+        source.volume = 0f;
+        return source;
+    }
+
+    private void EnsureMusicPlaybackState()
+    {
+        if (walkingMusicSource != null &&
+            walkingMusicSource.clip != null &&
+            !walkingMusicSource.isPlaying)
+        {
+            walkingMusicSource.Play();
+        }
+
+        if (focusMusicSource != null &&
+            focusMusicSource.clip != null &&
+            !focusMusicSource.isPlaying)
+        {
+            focusMusicSource.Play();
+        }
+    }
+
+    private void UpdateFocusFeedbackTargets()
+    {
+        var normalizedAttention = hasAttentionFeedback
+            ? Mathf.Clamp01(currentAttentionValue / 100f)
+            : Mathf.InverseLerp(0f, 100f, lowAttentionThreshold);
+
+        targetFocusCutoffFrequency = Mathf.Lerp(
+            focusMinCutoffFrequency,
+            focusMaxCutoffFrequency,
+            normalizedAttention);
+        targetFocusFeedbackVolume = Mathf.Lerp(
+            focusMinVolume,
+            focusMaxVolume,
+            normalizedAttention);
+
+        var smoothingSeconds = ResolveFeedbackSmoothingSeconds(currentAttentionValue);
+        currentFocusCutoffFrequency = Mathf.SmoothDamp(
+            currentFocusCutoffFrequency,
+            targetFocusCutoffFrequency,
+            ref focusCutoffVelocity,
+            smoothingSeconds,
+            Mathf.Infinity,
+            Time.unscaledDeltaTime);
+        currentFocusFeedbackVolume = Mathf.SmoothDamp(
+            currentFocusFeedbackVolume,
+            targetFocusFeedbackVolume,
+            ref focusFeedbackVolumeVelocity,
+            smoothingSeconds,
+            Mathf.Infinity,
+            Time.unscaledDeltaTime);
+
+        if (focusLowPassFilter != null)
+        {
+            focusLowPassFilter.cutoffFrequency = currentFocusCutoffFrequency;
+        }
+
+        RefreshMusicTargets();
+    }
+
+    private void UpdateMusicMixing()
+    {
+        if (walkingMusicSource != null)
+        {
+            walkingMusicSource.volume = Mathf.SmoothDamp(
+                walkingMusicSource.volume,
+                targetWalkingVolume,
+                ref walkingVolumeVelocity,
+                musicFadeDuration,
+                Mathf.Infinity,
+                Time.unscaledDeltaTime);
+        }
+
+        if (focusMusicSource != null)
+        {
+            focusMusicSource.volume = Mathf.SmoothDamp(
+                focusMusicSource.volume,
+                targetFocusMusicVolume,
+                ref focusMusicVolumeVelocity,
+                musicFadeDuration,
+                Mathf.Infinity,
+                Time.unscaledDeltaTime);
+        }
+    }
+
+    private float ResolveFeedbackSmoothingSeconds(float attentionValue)
+    {
+        if (attentionValue >= highAttentionThreshold)
+        {
+            return Mathf.Max(0.05f, highBandSmoothingSeconds);
+        }
+
+        if (attentionValue >= lowAttentionThreshold)
+        {
+            return Mathf.Max(0.05f, midBandSmoothingSeconds);
+        }
+
+        return Mathf.Max(0.05f, lowBandSmoothingSeconds);
     }
 }

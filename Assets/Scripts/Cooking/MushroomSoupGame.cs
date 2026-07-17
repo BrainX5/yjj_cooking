@@ -378,6 +378,7 @@ public class MushroomSoupGame : MonoBehaviour
         UpdateAnimations();
         UpdateSoupSurface();
         UpdateFireVisuals();
+        UpdateFocusMusicFeedback();
         RefreshSoupPromptOverlay();
         UpdateMushroomGatherPrompt();
         RefreshUI();
@@ -2253,6 +2254,33 @@ public class MushroomSoupGame : MonoBehaviour
         return CanUsePlatformInput()
             ? Mathf.RoundToInt(fishAttentionThreshold).ToString()
             : "--";
+    }
+
+    private void UpdateFocusMusicFeedback()
+    {
+        var audioController = CookingAudioController.Instance;
+        if (audioController == null)
+        {
+            return;
+        }
+
+        audioController.SetCookingMode(ShouldEnableFocusMusicMode());
+        audioController.UpdateFocusFeedback(GetCurrentAttentionValue(), CanUsePlatformInput());
+    }
+
+    private bool ShouldEnableFocusMusicMode()
+    {
+        if (dishPhase == DishPhase.Completed)
+        {
+            return false;
+        }
+
+        if ((dishPhase == DishPhase.MushroomSoup || dishPhase == DishPhase.FriedFish) && playerInCookingRange)
+        {
+            return true;
+        }
+
+        return dishPhase == DishPhase.FishCatch && playerNearRiver;
     }
 
     private void ResolveGameplayInput()
